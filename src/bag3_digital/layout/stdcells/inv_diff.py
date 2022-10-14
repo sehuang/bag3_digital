@@ -91,7 +91,6 @@ class InvDiffCore(MOSBase):
         inv_in = self.add_tile(inv_drv_master, 0, cur_col)
         inv_inb = self.add_tile(inv_drv_master, 1, cur_col)
 
-        mid_col = cur_col + inv_drv_ncols
         cur_col += inv_drv_ncols + blk_sp + inv_kp_ncols
         inv_fb0 = self.add_tile(inv_kp_master, 0, cur_col, flip_lr=True)
         inv_fb1 = self.add_tile(inv_kp_master, 1, cur_col, flip_lr=True)
@@ -112,7 +111,6 @@ class InvDiffCore(MOSBase):
         vm_layer = hm_layer + 1
 
         # input pins on vm_layer
-        # FIXME: change references to clk pins since they don't exist anymore
         w_sig_vm = self.tr_manager.get_width(vm_layer, 'sig')
         if vertical_in:
             close_track = self.grid.coord_to_track(inv_in.get_pin('nin').lower,
@@ -137,15 +135,11 @@ class InvDiffCore(MOSBase):
             self.reexport(inv_inb.get_port('nin'), net_name='inb', hide=False)
 
         # outputs on vm_layer
-        # FIXME: There are no more output buffers, fix pleas
         _tidx1 = self.grid.coord_to_track(vm_layer,
                                           cur_col * self.sd_pitch,
                                           RoundMode.NEAREST)
         if sep_vert_out:
-            _tidx0 = self.tr_manager.get_next_track(vm_layer, _tidx1,
-                                                    'sig', 'sig', -1)
-        else:
-            _tidx0 = _tidx1
+            raise NotImplementedError('Not implemented yet.')
 
         # get vm_layer tracks for mid and midb
         mid_coord = inv_in.get_pin('nin').upper
