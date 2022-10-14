@@ -12,7 +12,7 @@ from xbase.layout.enum import MOSWireType
 from xbase.layout.mos.base import MOSBasePlaceInfo, MOSBase
 
 from .inv_diff import InvDiffCore
-from ...schematic.latch_diff import bag3_digital__latch_diff
+from ...schematic.inv_diff_chain import bag3_digital__inv_diff_chain
 
 
 class InvDiffChain(MOSBase):
@@ -20,9 +20,9 @@ class InvDiffChain(MOSBase):
     def __init__(self, temp_db: TemplateDB, params: Param, **kwargs: Any) -> None:
         MOSBase.__init__(self, temp_db, params, **kwargs)
 
-    # @classmethod
-    # def get_schematic_class(cls) -> Optional[Type[Module]]:
-    #     return bag3_digital__inv_diff
+    @classmethod
+    def get_schematic_class(cls) -> Optional[Type[Module]]:
+        return bag3_digital__inv_diff_chain
 
     @classmethod
     def get_params_info(cls) -> Mapping[str, str]:
@@ -89,8 +89,6 @@ class InvDiffChain(MOSBase):
                                sep_vert_out=False,
                                )
         inv_diff_master = self.new_template(InvDiffCore, params=inv_diff_params)
-        inv_diff_ncols = inv_diff_master.num_cols
-
 
         # --- Placement --- #
         blk_sp = self.min_sep_col
@@ -135,5 +133,7 @@ class InvDiffChain(MOSBase):
 
         # get schematic parameters
         self.sch_params = dict(
-            inv_drv=inv_diff_master.sch_params,
+            inv_diff=inv_diff_master.sch_params,
+            length=length,
+            label_nodes=label_nodes,
         )

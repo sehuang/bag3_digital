@@ -11,7 +11,7 @@ from xbase.layout.enum import MOSWireType
 from xbase.layout.mos.base import MOSBasePlaceInfo, MOSBase
 
 from .gates import InvCore
-from ...schematic.latch_diff import bag3_digital__latch_diff
+from ...schematic.inv_diff import bag3_digital__inv_diff
 
 
 class InvDiffCore(MOSBase):
@@ -19,9 +19,9 @@ class InvDiffCore(MOSBase):
     def __init__(self, temp_db: TemplateDB, params: Param, **kwargs: Any) -> None:
         MOSBase.__init__(self, temp_db, params, **kwargs)
 
-    # @classmethod
-    # def get_schematic_class(cls) -> Optional[Type[Module]]:
-    #     return bag3_digital__inv_diff
+    @classmethod
+    def get_schematic_class(cls) -> Optional[Type[Module]]:
+        return bag3_digital__inv_diff
 
     @classmethod
     def get_params_info(cls) -> Mapping[str, str]:
