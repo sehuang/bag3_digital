@@ -1,3 +1,4 @@
+from cProfile import label
 from typing import Any, Mapping, Optional, Type
 
 from pybag.enum import RoundMode, MinLenMode
@@ -35,6 +36,7 @@ class InvDiffChain(MOSBase):
             ridx_n='nmos row index.',
             sig_locs='Signal track location dictionary.',
             length='Length of the chain',
+            label_nodes='True to label nodes; False by default.',
             vertical_in='True to have inputs on vertical layer; False by default',
             sep_vert_in='True to use separate vertical tracks for in and inb; False by default',
             sep_vert_out='True to use separate vertical tracks for out and outb; False by default',
@@ -52,6 +54,7 @@ class InvDiffChain(MOSBase):
             sep_vert_out=False,
             vertical_in=False,
             length=1,
+            label_nodes=False,
         )
 
     def draw_layout(self) -> None:
@@ -70,6 +73,7 @@ class InvDiffChain(MOSBase):
         seg_kp: int = self.params['seg_kp']
         seg_drv: int = self.params['seg_drv']
         length: int = self.params['length']
+        label_nodes: bool = self.params['label_nodes']
 
         # --- make masters --- #
         # Inverter params
@@ -120,6 +124,14 @@ class InvDiffChain(MOSBase):
             node = self.connect_wires([in_pin, out_pin])
             node_b = self.connect_wires([inb_pin, outb_pin])
             nodes.append((node, node_b))
+            if label_nodes:
+                self.add_pin(f'node<{i}>', node)
+
+        # add input and output pins
+        self.add_pin('in', drivers[0].get_pin('in'))
+        self.add_pin('inb', drivers[0].get_pin('inb'))
+        self.add_pin('out', drivers[-1].get_pin('out'))
+        self.add_pin('outb', drivers[-1].get_pin('outb'))
 
         # get schematic parameters
         self.sch_params = dict(
