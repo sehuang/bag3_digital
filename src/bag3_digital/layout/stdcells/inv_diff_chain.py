@@ -1,14 +1,10 @@
 from cProfile import label
 from typing import Any, Mapping, Optional, Type
 
-from pybag.enum import RoundMode, MinLenMode
-
 from bag.util.immutable import Param
 from bag.design.module import Module
 from bag.layout.template import TemplateDB
-from bag.layout.routing.base import TrackID
 
-from xbase.layout.enum import MOSWireType
 from xbase.layout.mos.base import MOSBasePlaceInfo, MOSBase
 
 from .inv_diff import InvDiffCore
@@ -69,7 +65,6 @@ class InvDiffChain(MOSBase):
         vertical_in: bool = self.params['vertical_in']
         sep_vert_in: bool = self.params['sep_vert_in']
         sep_vert_in = sep_vert_in and vertical_in
-        sep_vert_out: bool = self.params['sep_vert_out']
         seg_kp: int = self.params['seg_kp']
         seg_drv: int = self.params['seg_drv']
         length: int = self.params['length']
@@ -109,8 +104,6 @@ class InvDiffChain(MOSBase):
             vdd_list.extend(inst.get_all_port_pins('VDD'))
         self.add_pin('VDD', self.connect_wires(vdd_list)[0])
         self.add_pin('VSS', self.connect_wires(vss_list)[0])
-
-        hm_layer = self.conn_layer + 1
 
         # connect chain
         nodes = []

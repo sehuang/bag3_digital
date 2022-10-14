@@ -74,13 +74,15 @@ class InvDiffCore(MOSBase):
         ng0_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 1)
 
         # Keeper inverters
-        inv_kp_params = dict(pinfo=pinfo, seg=seg_kp, w_p=w_p, w_n=w_n, ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
+        inv_kp_params = dict(pinfo=pinfo, seg=seg_kp, w_p=w_p, w_n=w_n,
+                             ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
                              sig_locs={'nin': pg0_tidx})
         inv_kp_master = self.new_template(InvCore, params=inv_kp_params)
         inv_kp_ncols = inv_kp_master.num_cols
 
         # Input inverters
-        inv_drv_params = dict(pinfo=pinfo, seg=seg_drv, w_p=w_p, w_n=w_n, ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
+        inv_drv_params = dict(pinfo=pinfo, seg=seg_drv, w_p=w_p, w_n=w_n,
+                              ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
                               sig_locs={'nin': ng0_tidx})
         inv_drv_master = self.new_template(InvCore, params=inv_drv_params)
         inv_drv_ncols = inv_drv_master.num_cols
@@ -150,12 +152,16 @@ class InvDiffCore(MOSBase):
         _, vm_locs = self.tr_manager.place_wires(vm_layer,
                                                  ['sig', 'sig'],
                                                  mid_tidx)
-        mid = self.connect_to_tracks([inv_in.get_pin('pout'), inv_in.get_pin('nout'),
-                                     inv_fb0.get_pin('pout'), inv_fb0.get_pin('nout'),
+        mid = self.connect_to_tracks([inv_in.get_pin('pout'),
+                                      inv_in.get_pin('nout'),
+                                     inv_fb0.get_pin('pout'),
+                                     inv_fb0.get_pin('nout'),
                                      inv_fb1.get_pin('nin')],
                                      TrackID(vm_layer, vm_locs[1], w_sig_vm))
-        midb = self.connect_to_tracks([inv_inb.get_pin('pout'), inv_inb.get_pin('nout'),
-                                      inv_fb1.get_pin('pout'), inv_fb1.get_pin('nout'),
+        midb = self.connect_to_tracks([inv_inb.get_pin('pout'),
+                                       inv_inb.get_pin('nout'),
+                                      inv_fb1.get_pin('pout'),
+                                      inv_fb1.get_pin('nout'),
                                       inv_fb0.get_pin('nin')],
                                       TrackID(vm_layer, vm_locs[-2], w_sig_vm))
 
