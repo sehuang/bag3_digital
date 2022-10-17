@@ -32,7 +32,7 @@ class InvDiffChain(MOSBase):
             ridx_n='nmos row index.',
             sig_locs='Signal track location dictionary.',
             length='Length of the chain',
-            label_nodes='True to label nodes; False by default.',
+            export_nodes='True to label nodes; False by default.',
             vertical_in='True to have inputs on vertical layer; False by default',
             sep_vert_in='True to use separate vertical tracks for in and inb; False by default',
             sep_vert_out='True to use separate vertical tracks for out and outb; False by default',
@@ -50,7 +50,7 @@ class InvDiffChain(MOSBase):
             sep_vert_out=False,
             vertical_in=False,
             length=1,
-            label_nodes=False,
+            export_nodes=False,
         )
 
     def draw_layout(self) -> None:
@@ -68,7 +68,7 @@ class InvDiffChain(MOSBase):
         seg_kp: int = self.params['seg_kp']
         seg_drv: int = self.params['seg_drv']
         length: int = self.params['length']
-        label_nodes: bool = self.params['label_nodes']
+        export_nodes: bool = self.params['export_nodes']
 
         # --- make masters --- #
         # Inverter params
@@ -106,28 +106,26 @@ class InvDiffChain(MOSBase):
         self.add_pin('VSS', self.connect_wires(vss_list)[0])
 
         # connect chain
-        nodes = []
-        for i in range(1, length):
-            in_pin = drivers[i].get_pin('in')
-            inb_pin = drivers[i].get_pin('inb')
-            out_pin = drivers[i-1].get_pin('out')
-            outb_pin = drivers[i-1].get_pin('outb')
+        for idx in range(1, length):
+            in_pin = drivers[idx].get_pin('in')
+            inb_pin = drivers[idx].get_pin('inb')
+            out_pin = drivers[idx-1].get_pin('out')
+            outb_pin = drivers[idx-1].get_pin('outb')
             node = self.connect_wires([in_pin, out_pin])
             node_b = self.connect_wires([inb_pin, outb_pin])
-            nodes.append((node, node_b))
-            if label_nodes:
-                self.add_pin(f'mid<{i-1}>', node)
-                self.add_pin(f'midb<{i-1}>', node_b)
+            if export_nodes:
+                self.add_pin(f'mid<{idx-1}>', node)
+                self.add_pin(f'midb<{idx-1}>', node_b)
 
         # add input and output pins
-        self.add_pin('in', drivers[0].get_pin('in'))
-        self.add_pin('inb', drivers[0].get_pin('inb'))
-        self.add_pin('out', drivers[-1].get_pin('out'))
-        self.add_pin('outb', drivers[-1].get_pin('outb'))
+        self.reexport(drivers[0].get_pin('in'))
+        self.reexport(drivers[0].get_pin('inb'))
+        self.reexport(drivers[-1].get_pin('out'))
+        self.reexport(drivers[-1].get_pin('outb'))
 
         # get schematic parameters
         self.sch_params = dict(
             inv_diff=inv_diff_master.sch_params,
             length=length,
-            label_nodes=label_nodes,
+            export_nodes=export_nodes,
         )

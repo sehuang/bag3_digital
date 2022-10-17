@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Dict, Any
+from typing import Mapping, Any
 
 import os
 import pkg_resources
@@ -38,31 +38,29 @@ class bag3_digital__inv_diff_chain(Module):
         Module.__init__(self, self.yaml_file, database, params, **kwargs)
 
     @classmethod
-    def get_params_info(cls) -> Dict[str, str]:
+    def get_params_info(cls) -> Mapping[str, str]:
         return dict(
             inv_diff='Parameters for differential inverter.',
             length='Length of chain; Default is 2.',
-            label_nodes='True to label internal nodes; Default is False.',
+            export_nodes='True to label internal nodes; Default is False.',
         )
 
     @classmethod
-    def get_default_param_values(cls) -> Dict[str, Any]:
+    def get_default_param_values(cls) -> Mapping[str, Any]:
         return dict(
             length=2,
-            label_nodes=False,
+            export_nodes=False,
         )
 
-    def design(self, inv_diff: ImmutableList[Param], length: int, label_nodes: bool
+    def design(self, inv_diff: ImmutableList[Param], length: int, export_nodes: bool
                ) -> None:
-        if not label_nodes:
+        if not export_nodes:
             self.remove_pin('mid<0>')
             self.remove_pin('midb<0>')
         if length < 1:
             raise ValueError('Chain must be at least 1 long.')
         if length == 1:
             self.instances['XSTAGE'].design(**inv_diff)
-            # self.reconnect_instance_terminal('XSTAGE', 'out', 'out')
-            # self.reconnect_instance_terminal('XSTAGE', 'outb', 'outb')
         else:
             # add additional instances
             inst_term_list = []
@@ -78,9 +76,9 @@ class bag3_digital__inv_diff_chain(Module):
                                                            ('out', 'out'),
                                                            ('outb', 'outb')]))
             self.array_instance('XSTAGE', inst_term_list=inst_term_list)
-            if label_nodes:
-                self.rename_pin('mid<0>', f'mid<0:{length - 2}>')
-                self.rename_pin('midb<0>', f'midb<0:{length - 2}>')
+            if export_nodes:
+                self.rename_pin('mid<0>', f'mid<{length - 2}:0>')
+                self.rename_pin('midb<0>', f'midb<{length - 2}:0>')
             # design instances
             for idx in range(length):
                 self.instances[f'XSTAGE{idx}'].design(**inv_diff)
