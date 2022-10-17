@@ -116,7 +116,8 @@ class InvDiffChain(MOSBase):
             node_b = self.connect_wires([inb_pin, outb_pin])
             nodes.append((node, node_b))
             if label_nodes:
-                self.add_pin(f'node<{i}>', node)
+                self.add_pin(f'mid<{i-1}>', node)
+                self.add_pin(f'midb<{i-1}>', node_b)
 
         # add input and output pins
         self.add_pin('in', drivers[0].get_pin('in'))
