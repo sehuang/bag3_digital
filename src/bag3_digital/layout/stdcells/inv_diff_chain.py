@@ -118,10 +118,10 @@ class InvDiffChain(MOSBase):
                 self.add_pin(f'midb<{idx-1}>', node_b)
 
         # add input and output pins
-        self.reexport(drivers[0].get_pin('in'))
-        self.reexport(drivers[0].get_pin('inb'))
-        self.reexport(drivers[-1].get_pin('out'))
-        self.reexport(drivers[-1].get_pin('outb'))
+        self.add_pin('in', drivers[0].get_pin('in'))
+        self.add_pin('inb', drivers[0].get_pin('inb'))
+        self.add_pin('out', drivers[-1].get_pin('out'))
+        self.add_pin('outb', drivers[-1].get_pin('outb'))
 
         # get schematic parameters
         self.sch_params = dict(
