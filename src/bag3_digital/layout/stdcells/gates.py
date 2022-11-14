@@ -297,6 +297,7 @@ class InvChainCore(MOSBase):
             is_guarded='True if it there should be guard ring around the cell',
             sig_locs='Optional dictionary of user defined signal locations',
             vertical_out='True to draw output on vertical metal layer.',
+            vertical_mid='True to draw mid nets in vertical metal layer.',
             vertical_sup='True to have supply unconnected on conn_layer.',
             export_pins='True to export simulation pins.',
             sep_stages='True to separate the stages and not share source/drain.',
@@ -315,6 +316,7 @@ class InvChainCore(MOSBase):
             is_guarded=False,
             sig_locs={},
             vertical_out=True,
+            vertical_mid=True,
             vertical_sup=False,
             export_pins=False,
             sep_stages=False,
@@ -337,6 +339,7 @@ class InvChainCore(MOSBase):
         sep_stages: bool = params['sep_stages']
         sig_locs: Mapping[str, Union[float, HalfInt]] = params['sig_locs']
         buf_col_list: Optional[Sequence[int]] = params['buf_col_list']
+        vertical_mid: bool = params['vertical_mid']
 
         if export_pins and dual_output:
             raise ValueError('export_pins and dual_output cannot be True at the same time')
@@ -427,14 +430,21 @@ class InvChainCore(MOSBase):
                         # export second output on vm layer
                         suf = '' if self._out_invert else 'b'
                         self.add_pin('out' + suf, warr)
+                elif not vertical_mid:
+                    # I got lazy and made this a one-liner
+                    self.add_pin(f"in_mid{(nstage > 1)*('<' + str(idx) + '>')}", inst.get_pin("in"))
                 else:
                     self.connect_to_track_wires(inst.get_pin('in'), out_prev)
 
-            if idx == nstage - 1:
+            if idx == nstage - 1 and vertical_mid:
                 suf = 'b' if self._out_invert else ''
                 self.reexport(inst.get_port('out'), net_name='out' + suf)
                 self.add_pin('pout' + suf, pout_cur, hide=True)
                 self.add_pin('nout' + suf, nout_cur, hide=True)
+            elif not vertical_mid:
+                #FIXME: hide should be true, this is for debug
+                self.add_pin(f"pout{(nstage > 1)*('<' + str(idx) + '>')}", pout_cur, hide=False)
+                self.add_pin(f"nout{(nstage > 1)*('<' + str(idx) + '>')}", nout_cur, hide=False)
             elif dual_output and (idx == nstage - 2):
                 suf = '' if self._out_invert else 'b'
                 if not is_guarded:
@@ -488,6 +498,7 @@ class InvChainCore(MOSBase):
         is_guarded: bool = params['is_guarded']
         sig_locs: Mapping[str, Union[float, HalfInt]] = params['sig_locs']
         vertical_out: bool = params['vertical_out']
+        veritcal_mid: bool = params['vertical_mid']
         vertical_sup: bool = params['vertical_sup']
 
         nout_tidx = get_adj_tidx_list(self, ridx_n, sig_locs, MOSWireType.DS, 'nout', False)
@@ -545,7 +556,7 @@ class InvChainCore(MOSBase):
             # last stage vertical_out flag controlled by user parameters
             # for all others, draw vertical output if no guard ring
             vout = ((not is_guarded) and ((not is_last) or vertical_out) or
-                    (is_last and vertical_out))
+                    (is_last and vertical_out)) and veritcal_mid
             params = dict(
                 pinfo=pinfo,
                 seg_p=segp,
@@ -709,9 +720,9 @@ class InvTristateCore(MOSBase):
         self.add_pin('enb', self.connect_to_tracks(pports.g1, tid))
         mlm = MinLenMode.MIDDLE if separate_out else MinLenMode.NONE
         tid = TrackID(hm_layer, nout_tidx, width=tr_w_h)
-        nout = self.connect_to_tracks(nports.d, tid, min_len_mode=mlm)
+        nout = self.connect_to_tracks(nports.d, tid)
         tid = TrackID(hm_layer, pout_tidx, width=tr_w_h)
-        pout = self.connect_to_tracks(pports.d, tid, min_len_mode=mlm)
+        pout = self.connect_to_tracks(pports.d, tid)
 
         # connect output
         if vertical_out:
