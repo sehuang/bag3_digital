@@ -342,7 +342,10 @@ class CurrentStarvedInvDiffCore(MOSBase):
             self.add_pin('inb', inb_vm)
         else:
             self.reexport(inv_in.get_port('nin'), net_name='in', hide=False)
+            self.reexport(inv_in.get_port('ref_v'), net_name='rev_v', hide=False)
+            self.reexport(inv_inb.get_port('ref_v'), net_name='rev_v', hide=False)
             self.reexport(inv_inb.get_port('nin'), net_name='inb', hide=False)
+
 
         # outputs on vm_layer
         _tidx1 = self.grid.coord_to_track(vm_layer,
