@@ -34,6 +34,7 @@ class CurrentStarvedInvCore(MOSBase):
             pinfo='The MOSBasePlaceInfo object.',
             seg_inv='segments of transistors for inverter devices',
             seg_mir='segments of transistors for mirror device',
+            draw_mir='True to draw mirror device',
             seg_p='segments of inverter pmos',
             seg_n='segments of inverter nmos',
             stack_p='number of transistors in a stack.',
@@ -75,6 +76,7 @@ class CurrentStarvedInvCore(MOSBase):
             ptap_tile_idx=2,
             ntap_tile_idx=0,
             inv_tile_idx=0,
+            draw_mir=True,
         )
 
     def draw_layout(self) -> None:
@@ -96,9 +98,12 @@ class CurrentStarvedInvCore(MOSBase):
         ridx_n_mir: int = self.params['ridx_n_mir']
         is_guarded: bool = self.params['is_guarded']
         sig_locs: Mapping[str, Union[float, HalfInt]] = self.params['sig_locs']
+
+        draw_mir: bool = self.params['draw_mir']
         vertical_out: bool = self.params['vertical_out']
         vertical_sup: bool = self.params['vertical_sup']
         vertical_in: bool = self.params['vertical_in']
+
         ptap_tile_idx: int = self.params['ptap_tile_idx']
         ntap_tile_idx: int = self.params['ntap_tile_idx']
         inv_tile_idx: int = self.params['inv_tile_idx']
@@ -121,7 +126,8 @@ class CurrentStarvedInvCore(MOSBase):
         is_guarded = is_guarded or rpinfo_n.flip == rpinfo_p.flip
 
         # Placement
-        nports_mir = self.add_mos(ridx_n_mir, 0, seg_mir, w=w_n, tile_idx=inv_tile_idx)
+        if draw_mir:
+            nports_mir = self.add_mos(ridx_n_mir, 0, seg_mir, w=w_n, tile_idx=inv_tile_idx)
         nports_inv = self.add_mos(ridx_n_inv, 0, seg_n, w=w_n, stack=stack_n, tile_idx=inv_tile_idx)
         pports = self.add_mos(ridx_p, 0, seg_p, w=w_p, stack=stack_p, tile_idx=inv_tile_idx)
 
@@ -191,32 +197,45 @@ class CurrentStarvedInvCore(MOSBase):
         self.add_pin(f'pout', pout, hide=True)
         self.add_pin(f'nout', nout, hide=True)
 
-        ref_v_tid = self.get_track_id(ridx_n_mir, MOSWireType.G, wire_name='sig', wire_idx=0, tile_idx=inv_tile_idx)
-        ref_v = self.connect_to_tracks(nports_mir.g, ref_v_tid)
-        self.add_pin('ref_v', ref_v, show=True)
-
-        ns_tid = self.get_track_id(ridx_n_inv, MOSWireType.DS_GATE, wire_name='sig', wire_idx=0, tile_idx=inv_tile_idx)
-        ns_tie = self.connect_to_tracks(nports_inv.s, ns_tid)
-
-        if vm_tidx:
-            ns_tidx = tr_manager.get_next_track(vm_layer, vm_tidx, 'sig', 'sig', up=False)
-            ns_tid = TrackID(vm_layer, ns_tidx, width=tr_w_v)
+        if vertical_sup:
+            self.add_pin('VDD', pports.s, connect=True)
+            if draw_mir:
+                self.add_pin('VSS', nports_mir.s, connect=True)
+            else:
+                self.add_pin('VSS_int', nports_inv.s, connect=True)
         else:
-            ns_tid = self.track_to_track(vm_layer, nports_mir.d[0])
+            if draw_mir:
+                raise NotImplementedError('Current-starved inverters currently do not support horizontal supply rails with mirroring devices.')
+            else:
+                vss_tid = self.get_track_id(ridx_n_inv, MOSWireType.DS_GATE, wire_name='sig', wire_idx=0, tile_idx=inv_tile_idx)
+                vss_int = self.connect_to_tracks(nports_inv.s, vss_tid)
+                self.add_pin('VSS_int', vss_int, show=True)
 
-        ns = self.connect_to_tracks(ns_tie, ns_tid)
+        if draw_mir:
+            ref_v_tid = self.get_track_id(ridx_n_mir, MOSWireType.G, wire_name='sig', wire_idx=0, tile_idx=inv_tile_idx)
+            ref_v = self.connect_to_tracks(nports_mir.g, ref_v_tid)
+            self.add_pin('ref_v', ref_v, show=True)
 
-        ns_mir_tidx = self.get_track_index(ridx_n_mir, MOSWireType.DS_GATE, wire_name='sig',
-                                          wire_idx=0, tile_idx=inv_tile_idx)
-        self.connect_through(ns, nports_mir.d, tr_manager, connect_tidx=ns_mir_tidx)
+            ns_tie_tid = self.get_track_id(ridx_n_inv, MOSWireType.DS_GATE, wire_name='sig', wire_idx=0, tile_idx=inv_tile_idx)
+            ns_tie = self.connect_to_tracks(nports_inv.s, ns_tie_tid)
+
+            self.add_pin('ns_tie', ns_tie, hide=True)
+            if vm_tidx:
+                ns_tidx = tr_manager.get_next_track(vm_layer, vm_tidx, 'sig', 'sig', up=False)
+                ns_tid = TrackID(vm_layer, ns_tidx, width=tr_w_v)
+            else:
+                ns_tid = self.track_to_track(vm_layer, nports_mir.d[0])
+
+            ns = self.connect_to_tracks(ns_tie, ns_tid)
+
+        if draw_mir:
+            ns_mir_tidx = self.get_track_index(ridx_n_mir, MOSWireType.DS_GATE, wire_name='sig',
+                                            wire_idx=0, tile_idx=inv_tile_idx)
+            self.connect_through(ns, nports_mir.d, tr_manager, connect_tidx=ns_mir_tidx)
 
         xr = self.bound_box.xh
 
-        if vertical_sup:
-            self.add_pin('VDD', pports.s, connect=True)
-            self.add_pin('VSS', nports_mir.s, connect=True)
-        else:
-            raise NotImplementedError('Current-starved inverters currently do not support horizontal supply rails.')
+
 
         inv_tile_pinfo, _, _ = self.get_tile_info(inv_tile_idx)
         default_wp = inv_tile_pinfo.get_row_place_info(ridx_p).row_info.width
@@ -245,7 +264,30 @@ class CurrentStarvedInvCore(MOSBase):
     def connect_through(self, first_warr: WireArray, second_warr: WireArray,
                         tr_manager: TrackManager,
                         connect_pt: CoordType = None, connect_tidx: TrackType = None,
-                        mode: MinLenMode = MinLenMode.MIDDLE) -> WireArray:
+                        mode: MinLenMode = MinLenMode.MIDDLE) -> List[WireArray]:
+        '''Connects wires through a via stack between two distant layers
+
+        Parameters
+        ----------
+        first_warr : WireArray
+            First WireArray to connect
+        second_warr : WireArray
+            Second WireArray to connect
+        tr_manager : TrackManager
+            TrackManager Object
+        connect_pt : CoordType
+            Coordinate of the via center, on the same axis as second warr.  If
+            not specified, must specify connect_tidx
+        connect_tidx : TrackType
+            Track index of the via center, on the same layer as second warr.  If
+            not specified, must specify connect_pt
+        mode : MinLenMode
+            Minimum length mode for the intermediate layer
+
+        Returns
+        -------
+        List[WireArray]: List of WireArrays of the via stack and connection.
+        '''
 
         first_layer = first_warr.layer_id
         second_layer = second_warr.layer_id
@@ -264,12 +306,15 @@ class CurrentStarvedInvCore(MOSBase):
         else:
             raise ValueError('Must specify either connect_pt or connect_tidx')
 
+        wire_list = [start_warr]
         last_warr = start_warr
         last_coord = second_coord
         for next_layer in range(start_warr.layer_id + 1, end_warr.layer_id):
             next_tid = TrackID(next_layer, self.grid.coord_to_track(next_layer, last_coord, mode=mode),
                                width=tr_manager.get_width(next_layer, 'sig'))
             next_wire = self.connect_to_tracks(last_warr, next_tid)
+            wire_list.append(next_wire)
             last_warr = next_wire
             last_coord = self.grid.track_to_coord(next_layer, next_tid.base_index)
-        return self.connect_to_track_wires(next_wire, end_warr)
+        wire_list.append(self.connect_to_track_wires(next_wire, end_warr))
+        return wire_list

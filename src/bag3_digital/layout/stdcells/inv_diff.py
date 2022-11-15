@@ -70,16 +70,12 @@ class InvDiffCore(MOSBase):
         seg_drv: int = self.params['seg_drv']
 
         # --- make masters --- #
+
+
+
         # get tracks
         pg0_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', 0)
         ng0_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 1)
-
-        # Keeper inverters
-        inv_kp_params = dict(pinfo=pinfo, seg=seg_kp, w_p=w_p, w_n=w_n,
-                             ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
-                             sig_locs={'nin': pg0_tidx})
-        inv_kp_master = self.new_template(InvCore, params=inv_kp_params)
-        inv_kp_ncols = inv_kp_master.num_cols
 
         # Input inverters
         inv_drv_params = dict(pinfo=pinfo, seg=seg_drv, w_p=w_p, w_n=w_n,
@@ -87,6 +83,13 @@ class InvDiffCore(MOSBase):
                               sig_locs={'nin': ng0_tidx})
         inv_drv_master = self.new_template(InvCore, params=inv_drv_params)
         inv_drv_ncols = inv_drv_master.num_cols
+
+        # Keeper inverters
+        inv_kp_params = dict(pinfo=pinfo, seg=seg_kp, w_p=w_p, w_n=w_n,
+                             ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
+                             sig_locs={'nin': pg0_tidx})
+        inv_kp_master = self.new_template(InvCore, params=inv_kp_params)
+        inv_kp_ncols = inv_kp_master.num_cols
 
         # --- Placement --- #
         blk_sp = self.min_sep_col
@@ -208,6 +211,7 @@ class CurrentStarvedInvDiffCore(MOSBase):
             vertical_in='True to have inputs on vertical layer; True by default',
             sep_vert_in='True to use separate vertical tracks for in and inb; False by default',
             sep_vert_out='True to use separate vertical tracks for out and outb; False by default',
+            draw_mir='True to draw current mirror device; True by default',
             ptap_tile_idx='Ptap tile index.',
             ntap_tile_idx='Ntap tile index.',
             inv_tile_idx='Inverter tile index.',
@@ -227,6 +231,7 @@ class CurrentStarvedInvDiffCore(MOSBase):
             sep_vert_in=False,
             sep_vert_out=False,
             vertical_in=False,
+            draw_mir=True,
             ptap_tile_idx=[0,4],
             ntap_tile_idx=2,
             inv_tile_idx=[1,3],
@@ -248,6 +253,9 @@ class CurrentStarvedInvDiffCore(MOSBase):
         seg_kp: int = self.params['seg_kp']
         seg_drv: int = self.params['seg_drv']
         seg_mir: int = self.params['seg_mir']
+
+        draw_mir: bool = self.params['draw_mir']
+
         ptap_tile_idx: list[int] = self.params['ptap_tile_idx']
         ntap_tile_idx: int = self.params['ntap_tile_idx']
         inv_tile_idx: list[int] = self.params['inv_tile_idx']
@@ -257,54 +265,86 @@ class CurrentStarvedInvDiffCore(MOSBase):
         pg0_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', 0, tile_idx=inv_tile_idx[0])
         ng0_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 1, tile_idx=inv_tile_idx[0])
 
-        # Keeper inverters
-        inv_kp_params = dict(pinfo=self.get_tile_pinfo(inv_tile_idx[0]), seg=seg_kp,
-                             ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
-                             sig_locs={'nin': pg0_tidx}, vertical_sup=True)
-        inv_kp_master = self.new_template(InvCore, params=inv_kp_params)
-        inv_kp_ncols = inv_kp_master.num_cols
+
+        # kp_s_top = self.get_track_index(-1, MOSWireType.DS, 'sig',
+        #                                 wire_idx=0, tile_idx=inv_tile_idx[0])
+        # kp_s_bot = self.get_track_index(1, MOSWireType.DS, 'sig',
+        #                                 wire_idx=0, tile_idx=inv_tile_idx[0])
 
         # Input inverters
-        inv_drv_params = dict(pinfo=self.get_tile_pinfo(inv_tile_idx[0]), seg_inv=seg_drv, seg_mir=seg_mir)
+        inv_drv_params = dict(pinfo=self.get_tile_pinfo(inv_tile_idx[0]),
+                              seg_inv=seg_drv, seg_mir=seg_mir, draw_mir=draw_mir)
         inv_drv_master = self.new_template(CurrentStarvedInvCore, params=inv_drv_params)
         inv_drv_ncols = inv_drv_master.num_cols
         inv_drv_nrows = inv_drv_master.num_rows
         inv_drv_ntiles = inv_drv_master.num_tile_rows
 
+
+        in_warr = inv_drv_master.get_port('in').get_pins()[0]
+        ref_tidx = in_warr.track_id.base_index
+        ng1_tidx = self.tr_manager.get_next_track(2, ref_tidx, 'sig', 'sig', up=2)
+
+        n_ds1_tidx = inv_drv_master.get_port('nout').get_pins()[0].track_id.base_index
+
+        # Keeper inverters
+        inv_kp_params = dict(pinfo=self.get_tile_pinfo(inv_tile_idx[0]), seg=seg_kp,
+                             ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False, vertical_in=True,
+                             sig_locs={'nin': ng1_tidx,
+                                       'nout': n_ds1_tidx,},
+                             vertical_sup=True)
+        inv_kp_master = self.new_template(InvCore, params=inv_kp_params)
+        inv_kp_ncols = inv_kp_master.num_cols
+
+        # # pg0 = self.add_wires(2, pg0_tidx, 0, 10000)
+        # ng1 = self.add_wires(2, ng0_tidx, 0, 10000)
+        # # self.add_pin('pg', pg0)
+        # self.add_pin('ng1', ng1)
+
         # --- Placement --- #
         blk_sp = self.min_sep_col
-        total_cols = inv_drv_ncols + inv_kp_ncols + blk_sp
-
-        # tap rows
-        vss_bot_ports = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx[0], seg=total_cols)
-        vdd_ports = self.add_substrate_contact(0, 0, tile_idx=ntap_tile_idx, seg=total_cols)
-        vss_top_ports = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx[1], seg=total_cols)
 
         cur_col = blk_sp if sep_vert_in else 0
-        inv_in = self.add_tile(inv_drv_master, 1, cur_col)
-        inv_inb = self.add_tile(inv_drv_master, 3, cur_col)
+        inv_in = self.add_tile(inv_drv_master, inv_tile_idx[0], cur_col)
+        inv_inb = self.add_tile(inv_drv_master, inv_tile_idx[1], cur_col)
 
         cur_col += inv_drv_ncols + blk_sp + inv_kp_ncols
-        inv_fb0 = self.add_tile(inv_kp_master, 1, cur_col, flip_lr=True)
-        inv_fb1 = self.add_tile(inv_kp_master, 3, cur_col, flip_lr=True)
+        # Column parity check to avoid drc violation
+        if cur_col % 2: cur_col += 1
+        inv_fb0 = self.add_tile(inv_kp_master, inv_tile_idx[0], cur_col, flip_lr=True)
+        inv_fb1 = self.add_tile(inv_kp_master, inv_tile_idx[1], cur_col, flip_lr=True)
 
         cur_col += (blk_sp * sep_vert_out)
+
+        vss_bot_ports = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx[0], seg=cur_col)
+        vdd_ports = self.add_substrate_contact(0, 0, tile_idx=ntap_tile_idx, seg=cur_col)
+        vss_top_ports = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx[1], seg=cur_col)
 
         self.set_mos_size(cur_col)
 
         # --- Routing --- #
         # supplies
-        vss_top_tie = self.connect_wires([inv_inb.get_pin('VSS'),
-                                          inv_fb1.get_pin('VSS'),
-                                          vss_top_ports])
-        vss_bot_tie = self.connect_wires([inv_in.get_pin('VSS'),
-                                          inv_fb0.get_pin('VSS'),
-                                          vss_bot_ports])
-        vdd_tie = self.connect_wires([inv_in.get_pin('VDD'),
-                                      inv_inb.get_pin('VDD'),
-                                      inv_fb0.get_pin('VDD'),
-                                      inv_fb1.get_pin('VDD'),
-                                      vdd_ports])
+        if draw_mir:
+            vss_tie_top_list = [inv_inb.get_pin('VSS'), inv_fb1.get_pin('VSS'),
+                                vss_top_ports]
+            vss_tie_bot_list = [inv_in.get_pin('VSS'), inv_fb0.get_pin('VSS'),
+                                vss_bot_ports]
+            vdd_tie_list = [inv_in.get_pin('VDD'), inv_inb.get_pin('VDD'),
+                            inv_fb0.get_pin('VDD'), inv_fb1.get_pin('VDD'),
+                            vdd_ports]
+        else:
+            vss_tie_bot_list = [vss_bot_ports]
+            vss_tie_top_list = [vss_top_ports]
+            vdd_tie_list = [inv_in.get_pin('VDD'), inv_inb.get_pin('VDD'),
+                            inv_fb0.get_pin('VDD'), inv_fb1.get_pin('VDD'),
+                            vdd_ports]
+            self.reexport(inv_in.get_port('VSS_int'), net_name='VSS_int_bot', show=True)
+            self.reexport(inv_inb.get_port('VSS_int'), net_name='VSS_int_top', show=True)
+            self.add_pin('VSS_bot_taps', vss_bot_ports, hide=True)
+            self.add_pin('VSS_top_taps', vss_top_ports, hide=True)
+
+        vss_top_tie = self.connect_wires(vss_tie_top_list)
+        vss_bot_tie = self.connect_wires(vss_tie_bot_list)
+        vdd_tie = self.connect_wires(vdd_tie_list)
 
         vdd_tid = self.get_track_id(0, MOSWireType.DS_GATE, 'sup', tile_idx=ntap_tile_idx)
         vss_top_tid = self.get_track_id(0, MOSWireType.DS_GATE, 'sup', tile_idx=ptap_tile_idx[1])
@@ -342,10 +382,10 @@ class CurrentStarvedInvDiffCore(MOSBase):
             self.add_pin('inb', inb_vm)
         else:
             self.reexport(inv_in.get_port('nin'), net_name='in', hide=False)
-            self.reexport(inv_in.get_port('ref_v'), net_name='rev_v', hide=False)
-            self.reexport(inv_inb.get_port('ref_v'), net_name='rev_v', hide=False)
             self.reexport(inv_inb.get_port('nin'), net_name='inb', hide=False)
-
+            if draw_mir:
+                self.reexport(inv_in.get_port('ref_v'), net_name='ref_v_bot', hide=False)
+                self.reexport(inv_inb.get_port('ref_v'), net_name='ref_v_top', hide=False)
 
         # outputs on vm_layer
         _tidx1 = self.grid.coord_to_track(vm_layer,
