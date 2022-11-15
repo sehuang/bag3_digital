@@ -202,7 +202,7 @@ class CurrentStarvedInvCore(MOSBase):
             if draw_mir:
                 self.add_pin('VSS', nports_mir.s, connect=True)
             else:
-                self.add_pin('VSS_int', nports_inv.s, connect=True)
+                self.add_pin('VSS_int', nports_inv.s, connect=True, show=False)
         else:
             if draw_mir:
                 raise NotImplementedError('Current-starved inverters currently do not support horizontal supply rails with mirroring devices.')
