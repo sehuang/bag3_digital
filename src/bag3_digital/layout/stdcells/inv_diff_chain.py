@@ -148,6 +148,8 @@ class CurrentStarvedInvDiffChain(MOSBase):
             seg_drv='number of segments of inverter.',
             seg_mir='number of segments of mirror.',
             seg_kp='number of segments of keeper.',
+            mir_align='mirror alignment. -1 for left, 1 for right.',
+            mirror_ratio='ratio of current reference device to current mirrors. Only used if common_mir is True.',
             w_p='pmos width.',
             w_n='nmos width.',
             ridx_p='pmos row index.',
@@ -173,6 +175,8 @@ class CurrentStarvedInvDiffChain(MOSBase):
             ridx_p=-1,
             ridx_n=1,
             ridx_n_mir=0,
+            mir_align=-1,
+            mirror_ratio=1,
             sig_locs=None,
             sep_vert_in=False,
             sep_vert_out=False,
@@ -205,6 +209,8 @@ class CurrentStarvedInvDiffChain(MOSBase):
         export_nodes: bool = self.params['export_nodes']
 
         common_mir: bool = self.params['common_mir']
+        mir_align: int = self.params['mir_align']
+        mirror_ratio: int = self.params['mirror_ratio']
 
         ptap_tile_idx: list[int] = self.params['ptap_tile_idx']
         ntap_tile_idx: int = self.params['ntap_tile_idx']
@@ -231,7 +237,7 @@ class CurrentStarvedInvDiffChain(MOSBase):
         for _ in range(length):
             drivers.append(self.add_tile(inv_diff_master,0, cur_col))
             cur_col += drv_size + blk_sp
-        total_col = cur_col
+        total_col = cur_col - blk_sp
         self.set_mos_size(total_col)
 
         # --- Routing --- #
@@ -260,17 +266,24 @@ class CurrentStarvedInvDiffChain(MOSBase):
             inb_pin = drivers[idx].get_pin('inb')
             out_pin = drivers[idx-1].get_pin('out')
             outb_pin = drivers[idx-1].get_pin('outb')
+            mid_port = drivers[idx-1].get_port('mid')
+            midb_port = drivers[idx-1].get_port('midb')
             node = self.connect_wires([in_pin, out_pin])
             node_b = self.connect_wires([inb_pin, outb_pin])
-            if export_nodes:
-                self.add_pin(f'mid<{idx-1}>', node)
-                self.add_pin(f'midb<{idx-1}>', node_b)
+            self.reexport(mid_port, net_name=f'mid<{idx-1}>', show=export_nodes)
+            self.reexport(midb_port, net_name=f'midb<{idx-1}>', show=export_nodes)
+        mid_port = drivers[-1].get_port('mid')
+        midb_port = drivers[-1].get_port('midb')
+        self.reexport(mid_port, net_name=f'mid<{length-1}>', show=export_nodes)
+        self.reexport(midb_port, net_name=f'midb<{length-1}>', show=export_nodes)
 
         # add input and output pins
-        self.reexport(drivers[0].get_port('in'))
-        self.reexport(drivers[0].get_port('inb'))
-        self.reexport(drivers[-1].get_port('out'))
-        self.reexport(drivers[-1].get_port('outb'))
+        self.reexport(drivers[0].get_port('in'), net_name='in', show=True)
+        self.reexport(drivers[0].get_port('inb'), net_name='inb', show=True)
+        self.reexport(drivers[-1].get_port('out'), net_name='out', show=True)
+        self.reexport(drivers[-1].get_port('outb'), net_name='outb', show=True)
+
+
 
         # re-export ref_v pins
         if not common_mir:
@@ -294,13 +307,24 @@ class CurrentStarvedInvDiffChain(MOSBase):
             self.add_pin('VSS_int_bot', vss_int_bot, hide=True)
             self.add_pin('VSS_int_top', vss_int_top, hide=True)
 
-            # place current mirror on left edge for now I guess
-            mir_bot = self.add_mos(0, 0, seg_mir * length, tile_idx=inv_tile_idx[0])
-            mir_top = self.add_mos(0, 0, seg_mir * length, tile_idx=inv_tile_idx[1])
+            # place current mirror
+            col_mir = 0 if mir_align == -1 else total_col
+            mir_bot = self.add_mos(0, col_mir, seg_mir * length,
+                                   tile_idx=inv_tile_idx[0], flip_lr=mir_align == 1)
+            mir_top = self.add_mos(0, col_mir, seg_mir * length,
+                                   tile_idx=inv_tile_idx[1], flip_lr=mir_align == 1)
+            col_ref = seg_mir * length + blk_sp if mir_align == -1 else (total_col - seg_mir * length - blk_sp)
+            ref_seg = seg_mir * length / mirror_ratio
+            if ref_seg % 1:
+                raise ValueError(f'Mirror width {seg_mir} does not support current mirror ratio of {mirror_ratio}')
+            ref_bot = self.add_mos(0, col_ref, int(ref_seg),
+                                   tile_idx=inv_tile_idx[0], flip_lr=mir_align == 1)
+            ref_top = self.add_mos(0, col_ref, int(ref_seg),
+                                   tile_idx=inv_tile_idx[1], flip_lr=mir_align == 1)
 
             # make stubs for mirror drains
-            mir_bot_d_tid = self.get_track_id(ridx_n_mir, MOSWireType.DS, 'sig', wire_idx=-1, tile_idx=inv_tile_idx[0])
-            mir_top_d_tid = self.get_track_id(ridx_n_mir, MOSWireType.DS, 'sig', wire_idx=-1, tile_idx=inv_tile_idx[1])
+            mir_bot_d_tid = self.get_track_id(ridx_n_mir, MOSWireType.DS, 'sig', wire_idx=0, tile_idx=inv_tile_idx[0])
+            mir_top_d_tid = self.get_track_id(ridx_n_mir, MOSWireType.DS, 'sig', wire_idx=0, tile_idx=inv_tile_idx[1])
             mir_bot_d_tie = self.connect_to_tracks(mir_bot.d, mir_bot_d_tid)
             mir_top_d_tie = self.connect_to_tracks(mir_top.d, mir_top_d_tid)
 
@@ -312,20 +336,20 @@ class CurrentStarvedInvDiffChain(MOSBase):
             self.connect_to_track_wires(vss_int_top, mir_top_d_vm)
 
             # connect all current mirrors to VSS
-            vss_bot_taps_list.append(mir_bot.s)
-            vss_top_taps_list.append(mir_top.s)
+            vss_bot_taps_list.extend([mir_bot.s, ref_bot.s])
+            vss_top_taps_list.extend([mir_top.s, ref_top.s])
             self.connect_wires(vss_bot_taps_list)
             self.connect_wires(vss_top_taps_list)
 
             # connect gate connection
             bot_ref_v_tid = self.get_track_id(ridx_n_mir, MOSWireType.G, wire_name='sig', wire_idx=0,
                                               tile_idx=inv_tile_idx[0])
-            bot_ref_v = self.connect_to_tracks(mir_bot.g, bot_ref_v_tid)
-            self.add_pin('ref_v_bot', bot_ref_v, show=True)
+            bot_ref_v = self.connect_to_tracks([mir_bot.g, ref_bot.g, ref_bot.d], bot_ref_v_tid)
+            self.add_pin('i_ref_bot', bot_ref_v, show=True)
             top_ref_v_tid = self.get_track_id(ridx_n_mir, MOSWireType.G, wire_name='sig', wire_idx=0,
                                               tile_idx=inv_tile_idx[1])
-            top_ref_v = self.connect_to_tracks(mir_bot.g, top_ref_v_tid)
-            self.add_pin('ref_v_bot', top_ref_v, show=True)
+            top_ref_v = self.connect_to_tracks([mir_top.g, ref_top.g, ref_top.d], top_ref_v_tid)
+            self.add_pin('i_ref_top', top_ref_v, show=True)
 
         # get schematic parameters
         self.sch_params = dict(

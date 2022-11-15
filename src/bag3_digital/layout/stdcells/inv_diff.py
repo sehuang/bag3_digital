@@ -423,6 +423,8 @@ class CurrentStarvedInvDiffCore(MOSBase):
         outb_hm = self.connect_to_tracks(midb,
                                          inv_inb.get_pin('nin').track_id,
                                          min_len_mode=MinLenMode.MIDDLE)
+        self.add_pin('mid', mid, hide=True)
+        self.add_pin('midb', midb, hide=True)
         self.add_pin('out', out_hm, label='out')
         self.add_pin('outb', outb_hm, label='outb')
 
