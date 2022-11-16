@@ -207,6 +207,7 @@ class CurrentStarvedInvDiffCore(MOSBase):
             cs_ridx_n='nmos current starved row index.',
             ridx_p='pmos row index.',
             ridx_n='nmos row index.',
+            ridx_mir='mirror row index.',
             sig_locs='Signal track location dictionary.',
             vertical_in='True to have inputs on vertical layer; True by default',
             sep_vert_in='True to use separate vertical tracks for in and inb; False by default',
@@ -226,6 +227,7 @@ class CurrentStarvedInvDiffCore(MOSBase):
             cs_ridx_n=2,
             ridx_p=-1,
             ridx_n=1,
+            ridx_mir=0,
             seg_mir=1,
             sig_locs=None,
             sep_vert_in=False,
@@ -245,6 +247,7 @@ class CurrentStarvedInvDiffCore(MOSBase):
         w_n: int = self.params['w_n']
         ridx_p: int = self.params['ridx_p']
         ridx_n: int = self.params['ridx_n']
+        ridx_mir: int = self.params['ridx_mir']
         # sig_locs: Optional[Mapping[str, float]] = self.params['sig_locs']
         vertical_in: bool = self.params['vertical_in']
         sep_vert_in: bool = self.params['sep_vert_in']
@@ -273,7 +276,8 @@ class CurrentStarvedInvDiffCore(MOSBase):
 
         # Input inverters
         inv_drv_params = dict(pinfo=self.get_tile_pinfo(inv_tile_idx[0]),
-                              seg_inv=seg_drv, seg_mir=seg_mir, draw_mir=draw_mir)
+                              seg_inv=seg_drv, seg_mir=seg_mir, draw_mir=draw_mir,
+                              ridx_p=ridx_p, ridx_n_inv=ridx_n, ridx_n_mir=ridx_mir,)
         inv_drv_master = self.new_template(CurrentStarvedInvCore, params=inv_drv_params)
         inv_drv_ncols = inv_drv_master.num_cols
         inv_drv_nrows = inv_drv_master.num_rows
@@ -337,8 +341,12 @@ class CurrentStarvedInvDiffCore(MOSBase):
             vdd_tie_list = [inv_in.get_pin('VDD'), inv_inb.get_pin('VDD'),
                             inv_fb0.get_pin('VDD'), inv_fb1.get_pin('VDD'),
                             vdd_ports]
-            self.reexport(inv_in.get_port('VSS_int'), net_name='VSS_int_bot', show=True)
-            self.reexport(inv_inb.get_port('VSS_int'), net_name='VSS_int_top', show=True)
+            # self.reexport(inv_in.get_port('VSS_int'), net_name='VSS_int_bot', show=True, connect=True)
+            # self.reexport(inv_fb0.get_port('VSS'), net_name='VSS_int_bot', show=True, connect=True)
+            # self.reexport(inv_inb.get_port('VSS_int'), net_name='VSS_int_top', show=True, connect=True)
+            # self.reexport(inv_fb1.get_port('VSS'), net_name='VSS_int_top', show=True, connect=True)
+            self.add_pin('VSS_int_bot', self.connect_wires([inv_in.get_pin('VSS_int'), inv_fb0.get_pin('VSS')]), show=True, connect=True)
+            self.add_pin('VSS_int_top', self.connect_wires([inv_inb.get_pin('VSS_int'), inv_fb1.get_pin('VSS')]), show=True, connect=True)
             self.add_pin('VSS_bot_taps', vss_bot_ports, hide=True)
             self.add_pin('VSS_top_taps', vss_top_ports, hide=True)
 

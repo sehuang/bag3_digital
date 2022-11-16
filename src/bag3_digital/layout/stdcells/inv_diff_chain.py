@@ -154,7 +154,7 @@ class CurrentStarvedInvDiffChain(MOSBase):
             w_n='nmos width.',
             ridx_p='pmos row index.',
             ridx_n='nmos row index.',
-            ridx_n_mir='nmos mirror row index.',
+            ridx_mir='nmos mirror row index.',
             sig_locs='Signal track location dictionary.',
             length='Length of the chain',
             export_nodes='True to label nodes; False by default.',
@@ -174,7 +174,7 @@ class CurrentStarvedInvDiffChain(MOSBase):
             w_n=0,
             ridx_p=-1,
             ridx_n=1,
-            ridx_n_mir=0,
+            ridx_mir=0,
             mir_align=-1,
             mirror_ratio=1,
             sig_locs=None,
@@ -197,7 +197,7 @@ class CurrentStarvedInvDiffChain(MOSBase):
         w_n: int = self.params['w_n']
         ridx_p: int = self.params['ridx_p']
         ridx_n: int = self.params['ridx_n']
-        ridx_n_mir: int = self.params['ridx_n_mir']
+        ridx_mir: int = self.params['ridx_mir']
         # sig_locs: Optional[Mapping[str, float]] = self.params['sig_locs']
         vertical_in: bool = self.params['vertical_in']
         sep_vert_in: bool = self.params['sep_vert_in']
@@ -225,6 +225,7 @@ class CurrentStarvedInvDiffChain(MOSBase):
                                seg_drv=seg_drv,
                                seg_mir=seg_mir,
                                draw_mir=not common_mir,
+                               ridx_n=ridx_n, ridx_p=ridx_p, ridx_mir=ridx_mir,
                                )
         inv_diff_master = self.new_template(CurrentStarvedInvDiffCore, params=inv_diff_params)
 
@@ -295,9 +296,9 @@ class CurrentStarvedInvDiffChain(MOSBase):
             vss_int_bot_list = [driver.get_pin('VSS_int_bot') for driver in drivers]
             vss_int_top_list = [driver.get_pin('VSS_int_top') for driver in drivers]
 
-            vss_mid_bot_tid = self.get_track_id(ridx_n_mir, MOSWireType.G, wire_name='sup',
+            vss_mid_bot_tid = self.get_track_id(ridx_mir, MOSWireType.G, wire_name='sup',
                                                 tile_idx=inv_tile_idx[0], wire_idx=-1)
-            vss_mid_top_tid = self.get_track_id(ridx_n_mir, MOSWireType.G, wire_name='sup',
+            vss_mid_top_tid = self.get_track_id(ridx_mir, MOSWireType.G, wire_name='sup',
                                                 tile_idx=inv_tile_idx[1], wire_idx=-1)
 
             # draw intermediate rails
@@ -323,8 +324,8 @@ class CurrentStarvedInvDiffChain(MOSBase):
                                    tile_idx=inv_tile_idx[1], flip_lr=mir_align == 1)
 
             # make stubs for mirror drains
-            mir_bot_d_tid = self.get_track_id(ridx_n_mir, MOSWireType.DS, 'sig', wire_idx=0, tile_idx=inv_tile_idx[0])
-            mir_top_d_tid = self.get_track_id(ridx_n_mir, MOSWireType.DS, 'sig', wire_idx=0, tile_idx=inv_tile_idx[1])
+            mir_bot_d_tid = self.get_track_id(ridx_mir, MOSWireType.DS, 'sig', wire_idx=0, tile_idx=inv_tile_idx[0])
+            mir_top_d_tid = self.get_track_id(ridx_mir, MOSWireType.DS, 'sig', wire_idx=0, tile_idx=inv_tile_idx[1])
             mir_bot_d_tie = self.connect_to_tracks(mir_bot.d, mir_bot_d_tid)
             mir_top_d_tie = self.connect_to_tracks(mir_top.d, mir_top_d_tid)
 
@@ -342,11 +343,11 @@ class CurrentStarvedInvDiffChain(MOSBase):
             self.connect_wires(vss_top_taps_list)
 
             # connect gate connection
-            bot_ref_v_tid = self.get_track_id(ridx_n_mir, MOSWireType.G, wire_name='sig', wire_idx=0,
+            bot_ref_v_tid = self.get_track_id(ridx_mir, MOSWireType.G, wire_name='sig', wire_idx=0,
                                               tile_idx=inv_tile_idx[0])
             bot_ref_v = self.connect_to_tracks([mir_bot.g, ref_bot.g, ref_bot.d], bot_ref_v_tid)
             self.add_pin('i_ref_bot', bot_ref_v, show=True)
-            top_ref_v_tid = self.get_track_id(ridx_n_mir, MOSWireType.G, wire_name='sig', wire_idx=0,
+            top_ref_v_tid = self.get_track_id(ridx_mir, MOSWireType.G, wire_name='sig', wire_idx=0,
                                               tile_idx=inv_tile_idx[1])
             top_ref_v = self.connect_to_tracks([mir_top.g, ref_top.g, ref_top.d], top_ref_v_tid)
             self.add_pin('i_ref_top', top_ref_v, show=True)

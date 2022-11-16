@@ -49,8 +49,6 @@ class CurrentStarvedInvCore(MOSBase):
             vertical_out='True to draw output on vertical metal layer.',
             vertical_sup='True to have supply unconnected on conn_layer.',
             vertical_in='False to not draw the vertical input wire when is_guarded = True.',
-            ptap_tile_idx='Ptap tile index.',
-            ntap_tile_idx='Ntap tile index.',
             inv_tile_idx='Inverter tile index.',
         )
 
@@ -73,8 +71,6 @@ class CurrentStarvedInvCore(MOSBase):
             vertical_out=True,
             vertical_sup=True,
             vertical_in=True,
-            ptap_tile_idx=2,
-            ntap_tile_idx=0,
             inv_tile_idx=0,
             draw_mir=True,
         )
@@ -104,8 +100,6 @@ class CurrentStarvedInvCore(MOSBase):
         vertical_sup: bool = self.params['vertical_sup']
         vertical_in: bool = self.params['vertical_in']
 
-        ptap_tile_idx: int = self.params['ptap_tile_idx']
-        ntap_tile_idx: int = self.params['ntap_tile_idx']
         inv_tile_idx: int = self.params['inv_tile_idx']
 
         if seg_p <= 0:
