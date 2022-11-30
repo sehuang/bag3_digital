@@ -43,6 +43,8 @@ class bag3_digital__inv_chain(Module):
             inv_params='List of inverter parameters.',
             export_pins='True to export simulation pins.',
             dual_output='True to export complementary outputs  Ignored if only one stage.',
+            dummies='True to draw dummies on either end',
+            dummy_params='Dummy parameters',
         )
 
     @classmethod
@@ -50,10 +52,12 @@ class bag3_digital__inv_chain(Module):
         return dict(
             export_pins=False,
             dual_output=False,
+            dummies=False,
+            dummy_params={},
         )
 
-    def design(self, inv_params: ImmutableList[Param], export_pins: bool, dual_output: bool
-               ) -> None:
+    def design(self, inv_params: ImmutableList[Param], export_pins: bool, dual_output: bool,
+               dummies: bool, dummy_params: Param) -> None:
         num = len(inv_params)
         if num < 1:
             raise ValueError('Cannot have 0 inverters.')
@@ -95,5 +99,11 @@ class bag3_digital__inv_chain(Module):
                     inst_term_list.append((f'XINV{idx}', term))
 
             self.array_instance('XINV', inst_term_list=inst_term_list)
+            if not dummies:
+                self.remove_instance('XDUMMY0')
+                self.remove_instance('XDUMMY1')
+            else:
+                self.instances['XDUMMY1'].design(**dummy_params)
+                self.instances['XDUMMY0'].design(**dummy_params)
             for idx in range(num):
                 self.instances[inst_term_list[idx][0]].design(**inv_params[idx])

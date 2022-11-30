@@ -96,6 +96,8 @@ class InvCore(MOSBase):
             vertical_out='True to draw output on vertical metal layer.',
             vertical_sup='True to have supply unconnected on conn_layer.',
             vertical_in='False to not draw the vertical input wire when is_guarded = True.',
+            tap_seg_interval='interval within which a tap must be inserted.',
+            tap_edge_col='True to draw taps on either side.'
         )
 
     @classmethod
@@ -115,6 +117,8 @@ class InvCore(MOSBase):
             vertical_out=True,
             vertical_sup=False,
             vertical_in=True,
+            tap_seg_interval=None,
+            tap_edge_col=False,
         )
 
     def draw_layout(self) -> None:
@@ -138,6 +142,9 @@ class InvCore(MOSBase):
         vertical_sup: bool = self.params['vertical_sup']
         vertical_in: bool = self.params['vertical_in']
 
+        tap_seg_interval: int = self.params['tap_seg_interval']
+        tap_edge: bool = self.params['tap_edge_col']
+
         if seg_p <= 0:
             seg_p = seg
         if seg_n <= 0:
@@ -156,8 +163,15 @@ class InvCore(MOSBase):
         is_guarded = is_guarded or rpinfo_n.flip == rpinfo_p.flip
 
         # Placement
-        nports = self.add_mos(ridx_n, 0, seg_n, w=w_n, stack=stack_n)
-        pports = self.add_mos(ridx_p, 0, seg_p, w=w_p, stack=stack_p)
+        mos_col = 0
+        vdd_list, vss_list = [], []
+        if tap_edge:
+            self.add_tap(0, vdd_list, vss_list)
+            mos_col += self.get_tap_ncol() + self.sub_sep_col
+        nports = self.add_mos(ridx_n, mos_col, seg_n, w=w_n, stack=stack_n)
+        pports = self.add_mos(ridx_p, mos_col, seg_p, w=w_p, stack=stack_p)
+        if tap_edge:
+            self.add_tap(mos_col + seg_n + self.sub_sep_col, vdd_list, vss_list)
 
         self.set_mos_size()
 
@@ -226,16 +240,20 @@ class InvCore(MOSBase):
         self.add_pin(f'nout', nout, hide=True)
 
         xr = self.bound_box.xh
-        if vertical_sup:
-            self.add_pin('VDD', pports.s, connect=True)
-            self.add_pin('VSS', nports.s, connect=True)
-        else:
+        vdd_list.append(pports.s)
+        vss_list.append(nports.s)
+        if not vertical_sup:
             ns_tid = self.get_track_id(ridx_n, False, wire_name='sup')
             ps_tid = self.get_track_id(ridx_p, True, wire_name='sup')
-            vss = self.connect_to_tracks(nports.s, ns_tid, track_lower=0, track_upper=xr)
-            vdd = self.connect_to_tracks(pports.s, ps_tid, track_lower=0, track_upper=xr)
-            self.add_pin('VDD', vdd)
-            self.add_pin('VSS', vss)
+            vss = self.connect_to_tracks(vss_list, ns_tid, track_lower=0, track_upper=xr)
+            vdd = self.connect_to_tracks(vdd_list, ps_tid, track_lower=0, track_upper=xr)
+            vdd_list = [vdd]
+            vss_list = [vss]
+            # self.add_pin('VDD', vdd)
+            # self.add_pin('VSS', vss)
+
+        self.add_pin('VDD', vdd_list, connect=vertical_sup)
+        self.add_pin('VSS', vss_list, connect=vertical_sup)
 
         default_wp = self.place_info.get_row_place_info(ridx_p).row_info.width
         default_wn = self.place_info.get_row_place_info(ridx_n).row_info.width
@@ -302,6 +320,11 @@ class InvChainCore(MOSBase):
             export_pins='True to export simulation pins.',
             sep_stages='True to separate the stages and not share source/drain.',
             buf_col_list='List of inverter column indices.',
+            dummies='True to draw dummies on either end',
+            dummy_params='Dummy device parameters',
+            tap_seg_interval='interval within which a tap must be inserted.',
+            tap_edge_col='True to draw taps on either side.',
+            tap_stages="Add substrate tap between stages. Can be 0/False, 1/True, 2 to draw tap at beginning, 3 to draw tap at end, or 4 to draw tap at both ends."
         )
 
     @classmethod
@@ -324,6 +347,11 @@ class InvChainCore(MOSBase):
             segp_list=[],
             segn_list=[],
             buf_col_list=None,
+            dummies=False,
+            dummy_params={},
+            tap_seg_interval=None,
+            tap_edge_col=False,
+            tap_stages=False,
         )
 
     def draw_layout(self) -> None:
@@ -340,11 +368,45 @@ class InvChainCore(MOSBase):
         sig_locs: Mapping[str, Union[float, HalfInt]] = params['sig_locs']
         buf_col_list: Optional[Sequence[int]] = params['buf_col_list']
         vertical_mid: bool = params['vertical_mid']
+        vertical_out: bool = params['vertical_out']
+        vertical_sup: bool = params['vertical_sup']
+        dummies: bool = params['dummies']
+        dummy_params: Mapping[str, Any] = params['dummy_params']
+        tap_edge_col: bool = params['tap_edge_col']
+        tap_stages: bool = params['tap_stages']
+        ridx_p: int = params['ridx_p']
+        ridx_n: int = params['ridx_n']
 
         if export_pins and dual_output:
             raise ValueError('export_pins and dual_output cannot be True at the same time')
 
+        # default_dummy_params = dict(
+        #     pinfo=self.params['pinfo'],
+        #     lch=self.place_info.arr_info.lch,
+        #     seg_p=2,
+        #     seg_n=2,
+        #     stack_p=1,
+        #     stack_n=1,
+        #     th_n=self.place_info.get_row_place_info(ridx_n).row_info.threshold,
+        #     th_p=self.place_info.get_row_place_info(ridx_p).row_info.threshold,
+        #     w_p=self.params['w_p'],
+        #     w_n=self.params['w_n'],
+        #     ridx_p=self.params['ridx_p'],
+        #     ridx_n=self.params['ridx_n'],
+        #     is_guarded=is_guarded,
+        #     vertical_out=False,
+        #     vertical_sup=True,
+        # )
+
+
         inv_masters = self._create_masters(pinfo)
+        default_dummy_params = inv_masters[0].sch_params.to_dict().copy()
+        default_dummy_params.update(dict(pinfo=self.params['pinfo'], seg_p=2, seg_n=2, stack_p=1, stack_n=1,
+                                         is_guarded=is_guarded, vertical_out=True, vertical_sup=vertical_sup))
+        default_dummy_params.update(dummy_params)
+        dummy_params = default_dummy_params.copy()
+        dummy_master = self.new_template(InvCore, params=dummy_params)
+        dummy_ncol = dummy_master.num_cols
         nstage = len(inv_masters)
         if nstage == 1:
             dual_output = False
@@ -361,7 +423,12 @@ class InvChainCore(MOSBase):
         pout_prev: Optional[WireArray] = None
         vdd_list = []
         vss_list = []
+        tap_vdd_list, tap_vss_list = [], []
         sch_params_list = []
+        dummy_list = []
+        if dummies: # add first dummy
+            dummy_list.append(self.add_tile(dummy_master, 0, 0))
+            cur_col += dummy_ncol + min_sep if not tap_stages else dummy_ncol + self.sub_sep_col
         for idx, master in enumerate(inv_masters):
             sch_params_cur = master.sch_params
             wp_cur = sch_params_cur['w_p']
@@ -380,11 +447,20 @@ class InvChainCore(MOSBase):
                 # NOTE: place on even columns only to preserve supply parity
                 if (cur_col != 0 and
                         (sep_stages or wn_cur != wn_prev or wp_cur != wp_prev or
-                         not sup_last_prev or (cur_col & 1) == 1)):
+                         not sup_last_prev or (cur_col & 1) == 1) and not tap_edge_col):
                     # we can abut with previous stage if widths are the same, the last
                     # source/drain of the previous stage is the supply, and we're on even column now
                     cur_col += min_sep
+                elif tap_edge_col:
+                    # FIXME: this separation is just for debug
+                    cur_col += min_sep + self.sub_sep_col
                 cur_col += (cur_col & 1)
+
+            # add tap if tap_stages, but skip first tap if tap_stages is odd
+            if tap_stages and idx > 0 or (tap_stages % 2 == 0 and idx == 0):
+                cur_col += self.sub_sep_col if idx > 0 else 0
+                self.add_tap(cur_col, tap_vdd_list, tap_vss_list)
+                cur_col += self.get_tap_ncol() + self.sub_sep_col
 
             # add instance
             inst = self.add_tile(master, 0, cur_col, commit=False)
@@ -436,15 +512,20 @@ class InvChainCore(MOSBase):
                 else:
                     self.connect_to_track_wires(inst.get_pin('in'), out_prev)
 
-            if idx == nstage - 1 and vertical_mid:
-                suf = 'b' if self._out_invert else ''
-                self.reexport(inst.get_port('out'), net_name='out' + suf)
-                self.add_pin('pout' + suf, pout_cur, hide=True)
-                self.add_pin('nout' + suf, nout_cur, hide=True)
-            elif not vertical_mid:
-                #FIXME: hide should be true, this is for debug
-                self.add_pin(f"pout{(nstage > 1)*('<' + str(idx) + '>')}", pout_cur, hide=False)
-                self.add_pin(f"nout{(nstage > 1)*('<' + str(idx) + '>')}", nout_cur, hide=False)
+            if not vertical_mid:
+                    self.add_pin(f"pout{(nstage > 1)*('<' + str(idx) + '>')}", pout_cur, hide=True)
+                    self.add_pin(f"nout{(nstage > 1)*('<' + str(idx) + '>')}", nout_cur, hide=True)
+
+            if idx == nstage - 1:
+                if not vertical_out and (vertical_mid or is_guarded):
+                    suf = 'b' if self._out_invert else ''
+                    self.reexport(inst.get_port('out'), net_name='out' + suf)
+                    self.reexport(inst.get_port('in'), net_name='in_last')
+                    self.add_pin('pout' + suf, pout_cur, hide=True)
+                    self.add_pin('nout' + suf, nout_cur, hide=True)
+                else:
+                    suf = 'b' if self._out_invert else ''
+                    self.add_pin('out' + suf, out_cur)
             elif dual_output and (idx == nstage - 2):
                 suf = '' if self._out_invert else 'b'
                 if not is_guarded:
@@ -472,10 +553,28 @@ class InvChainCore(MOSBase):
             else:
                 sup_last_prev = (segp_cur % 2 == 0) and (segn_cur % 2 == 0)
                 cur_col += fgn_cur
+            if tap_edge_col:
+                cur_col += 2 * self.get_tap_ncol() + 2 * self.sub_sep_col
+
+        # add last tap if tap_stages is > 2
+        if tap_stages and tap_stages > 2:
+            self.add_tap(cur_col, tap_vdd_list, tap_vss_list)
+            cur_col += self.get_tap_ncol() + self.sub_sep_col
+        if dummies:
+            cur_col += min_sep if not tap_stages else 0
+            dummy_list.append(self.add_tile(dummy_master, 0, cur_col + dummy_ncol, flip_lr=True)) # add last dummy
+            vdd_list.extend([inst.get_pin('VDD') for inst in dummy_list])
+            vss_list.extend([inst.get_pin('VSS') for inst in dummy_list])
 
         self.set_mos_size()
 
         # export supplies
+        if not vertical_sup:
+            vdd_tid = vdd_list[0].track_id
+            vss_tid = vss_list[0].track_id
+            vdd_list.append(self.connect_to_tracks(tap_vdd_list, vdd_tid))
+            vss_list.append(self.connect_to_tracks(tap_vss_list, vss_tid))
+
         self.add_pin('VDD', self.connect_wires(vdd_list))
         self.add_pin('VSS', self.connect_wires(vss_list))
 
@@ -483,6 +582,8 @@ class InvChainCore(MOSBase):
             inv_params=sch_params_list,
             export_pins=export_pins,
             dual_output=dual_output,
+            dummies=dummies,
+            dummy_params=dummy_params
         )
 
     def _create_masters(self, pinfo: MOSBasePlaceInfo) -> Sequence[InvCore]:
@@ -500,26 +601,44 @@ class InvChainCore(MOSBase):
         vertical_out: bool = params['vertical_out']
         veritcal_mid: bool = params['vertical_mid']
         vertical_sup: bool = params['vertical_sup']
+        tap_seg_interval: int = self.params['tap_seg_interval']
+        tap_edge: bool = self.params['tap_edge_col']
 
         nout_tidx = get_adj_tidx_list(self, ridx_n, sig_locs, MOSWireType.DS, 'nout', False)
         pout_tidx = get_adj_tidx_list(self, ridx_p, sig_locs, MOSWireType.DS, 'pout', True)
         nin_tidx = get_adj_tidx_list(self, ridx_n, sig_locs, MOSWireType.G, 'nin', True)
         pin_tidx = get_adj_tidx_list(self, ridx_p, sig_locs, MOSWireType.G, 'pin', False)
 
-        sig_locs_list = [
-            dict(
-                nout=nout_tidx[0],
-                pout=pout_tidx[0],
-                nin=nin_tidx[0],
-                pin=pin_tidx[0],
-            ),
-            dict(
-                nout=nout_tidx[1],
-                pout=pout_tidx[1],
-                nin=nin_tidx[1],
-                pin=pin_tidx[1],
-            ),
-        ]
+        if is_guarded:
+            sig_locs_list = [
+                dict(
+                    nout=nout_tidx[0],
+                    pout=pout_tidx[0],
+                    nin=nin_tidx[1],
+                    pin=pin_tidx[1],
+                ),
+                dict(
+                    nout=nout_tidx[1],
+                    pout=pout_tidx[1],
+                    nin=nin_tidx[1],
+                    pin=pin_tidx[1],
+                ),
+            ]
+        else:
+            sig_locs_list = [
+                dict(
+                    nout=nout_tidx[1],
+                    pout=pout_tidx[1],
+                    nin=nin_tidx[1],
+                    pin=pin_tidx[1],
+                ),
+                dict(
+                    nout=nout_tidx[0],
+                    pout=pout_tidx[0],
+                    nin=nin_tidx[0],
+                    pin=pin_tidx[0],
+                ),
+            ]
 
         nstage = len(seg_list) if seg_list else len(segn_list)
         if nstage == 0:
@@ -571,6 +690,8 @@ class InvChainCore(MOSBase):
                 sig_locs=sig_locs_list[idx % 2],
                 vertical_out=vout,
                 vertical_sup=vertical_sup,
+                tap_seg_interval=tap_seg_interval,
+                tap_edge_col=tap_edge,
             )
             master_list.append(self.new_template(InvCore, params=params))
 
@@ -720,9 +841,9 @@ class InvTristateCore(MOSBase):
         self.add_pin('enb', self.connect_to_tracks(pports.g1, tid))
         mlm = MinLenMode.MIDDLE if separate_out else MinLenMode.NONE
         tid = TrackID(hm_layer, nout_tidx, width=tr_w_h)
-        nout = self.connect_to_tracks(nports.d, tid)
+        nout = self.connect_to_tracks(nports.d, tid, min_len_mode=mlm)
         tid = TrackID(hm_layer, pout_tidx, width=tr_w_h)
-        pout = self.connect_to_tracks(pports.d, tid)
+        pout = self.connect_to_tracks(pports.d, tid, min_len_mode=mlm)
 
         # connect output
         if vertical_out:

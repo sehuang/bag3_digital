@@ -16,6 +16,7 @@ from .gates import InvChainCore
 class InvChainCoreWithTaps(MOSBase):
     def __init__(self, temp_db: TemplateDB, params: Param, **kwargs: Any) -> None:
         MOSBase.__init__(self, temp_db, params, **kwargs)
+        self._out_inv = bool(len(params['seg_list']) % 2)
 
     @classmethod
     def get_params_info(cls) -> Mapping[str, str]:
@@ -42,6 +43,7 @@ class InvChainCoreWithTaps(MOSBase):
         self.draw_base(pinfo)
 
         draw_taps: DrawTaps = DrawTaps[self.params['draw_taps']]
+        suf = 'b' if self._out_inv else ''
 
         # create masters
         inv_params = self.params.copy(remove=['draw_taps'], append=dict(is_guarded=True))
@@ -102,7 +104,22 @@ class InvChainCoreWithTaps(MOSBase):
         self.add_pin('VSS_vm', vss_table[vm_layer], label='VSS')
 
         self.reexport(inst.get_port('in'))
-        self.reexport(inst.get_port('out'))
+        self.reexport(inst.get_port('in_last'), hide=False)
+        self.reexport(inst.get_port('nout' + suf), hide=False)
+        self.reexport(inst.get_port('pout' + suf), hide=False)
+
+        # if vertical_out:
+        #     self.reexport(inst.get_port('out'))
+        # elif not vertical_mid:
+        #     for idx in range(len(seg_list)):
+        #         print(idx)
+        #         self.reexport(inst.get_port(f'pout<{idx}>'), net_name=f'pout<{idx}>')
+        #         self.reexport(inst.get_port(f'nout<{idx}>'), net_name=f'nout<{idx}>')
+        #     self.reexport(inst.get_port(f"pout{(len(seg_list) > 1)*('<' + str(len(seg_list) - 1) + '>')}",), net_name='nout')
+        #     self.reexport(inst.get_port(f"nout{(len(seg_list) > 1)*('<' + str(len(seg_list) - 1) + '>')}",), net_name='pout')
+        # else:
+        #     self.reexport(inst.get_port('nout'), net_name='nout')
+        #     self.reexport(inst.get_port('pout'), net_name='pout')
 
         # set properties
         self.sch_params = master.sch_params
