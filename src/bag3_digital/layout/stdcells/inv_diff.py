@@ -1,4 +1,4 @@
-from typing import Any, Mapping, Optional, Type
+from typing import Any, Mapping, Optional, Type, List
 
 from pybag.enum import RoundMode, MinLenMode
 
@@ -34,10 +34,14 @@ class InvDiffCore(MOSBase):
             w_n='nmos width.',
             ridx_p='pmos row index.',
             ridx_n='nmos row index.',
+            dummy_dev='True to add dummy devices around active devices.',
             sig_locs='Signal track location dictionary.',
             vertical_in='True to have inputs on vertical layer; True by default',
             sep_vert_in='True to use separate vertical tracks for in and inb; False by default',
             sep_vert_out='True to use separate vertical tracks for out and outb; False by default',
+            driver_tile_idx='Tile index of drivers; [1, 3] by default',
+            ptap_tile_idx='Tile index of ptap; [0, 4] by default',
+            ntap_tile_idx='Tile index of ntap; [2] by default',
         )
 
     @classmethod
@@ -47,10 +51,14 @@ class InvDiffCore(MOSBase):
             w_n=0,
             ridx_p=-1,
             ridx_n=0,
+            dummy_dev=False,
             sig_locs=None,
             sep_vert_in=False,
             sep_vert_out=False,
             vertical_in=False,
+            driver_tile_idx=[1, 3],
+            ptap_tile_idx=[0, 4],
+            ntap_tile_idx=[2],
         )
 
     def draw_layout(self) -> None:
@@ -62,6 +70,7 @@ class InvDiffCore(MOSBase):
         ridx_p: int = self.params['ridx_p']
         ridx_n: int = self.params['ridx_n']
         # sig_locs: Optional[Mapping[str, float]] = self.params['sig_locs']
+        dummy_dev: bool = self.params['dummy_dev']
         vertical_in: bool = self.params['vertical_in']
         sep_vert_in: bool = self.params['sep_vert_in']
         sep_vert_in = sep_vert_in and vertical_in
@@ -69,49 +78,105 @@ class InvDiffCore(MOSBase):
         seg_kp: int = self.params['seg_kp']
         seg_drv: int = self.params['seg_drv']
 
+        driver_tile_idx: List[int] = self.params['driver_tile_idx']
+        ptap_tile_idx: List[int] = self.params['ptap_tile_idx']
+        ntap_tile_idx: List[int] = self.params['ntap_tile_idx']
+
         # --- make masters --- #
 
 
 
         # get tracks
-        pg0_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', 0)
-        ng0_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 1)
+        pg0_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', 0, tile_idx=driver_tile_idx[0])
+        ng0_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 1, tile_idx=driver_tile_idx[0])
 
         # Input inverters
-        inv_drv_params = dict(pinfo=pinfo, seg=seg_drv, w_p=w_p, w_n=w_n,
+        inv_drv_params = dict(pinfo=self.get_tile_pinfo(driver_tile_idx[0]), seg=seg_drv, w_p=w_p, w_n=w_n,
                               ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
-                              sig_locs={'nin': ng0_tidx})
+                              vertical_sup=True)
         inv_drv_master = self.new_template(InvCore, params=inv_drv_params)
         inv_drv_ncols = inv_drv_master.num_cols
 
         # Keeper inverters
-        inv_kp_params = dict(pinfo=pinfo, seg=seg_kp, w_p=w_p, w_n=w_n,
+        inv_kp_params = dict(pinfo=self.get_tile_pinfo(driver_tile_idx[0]), seg=seg_kp, w_p=w_p, w_n=w_n,
                              ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
-                             sig_locs={'nin': pg0_tidx})
+                             vertical_sup=True)
         inv_kp_master = self.new_template(InvCore, params=inv_kp_params)
         inv_kp_ncols = inv_kp_master.num_cols
 
         # --- Placement --- #
         blk_sp = self.min_sep_col
-        cur_col = blk_sp if sep_vert_in else 0
-        inv_in = self.add_tile(inv_drv_master, 0, cur_col)
-        inv_inb = self.add_tile(inv_drv_master, 1, cur_col)
+        if sep_vert_in:
+            cur_col = blk_sp
+        elif dummy_dev:
+            cur_col = 2
+        else:
+            cur_col = 0
+        inv_in = self.add_tile(inv_drv_master, driver_tile_idx[0], cur_col)
+        inv_inb = self.add_tile(inv_drv_master, driver_tile_idx[1], cur_col)
 
-        cur_col += inv_drv_ncols + blk_sp + inv_kp_ncols
-        inv_fb0 = self.add_tile(inv_kp_master, 0, cur_col, flip_lr=True)
-        inv_fb1 = self.add_tile(inv_kp_master, 1, cur_col, flip_lr=True)
+        if ~(inv_drv_ncols % 2) and ~(inv_kp_ncols % 2):
+            cur_col += inv_drv_ncols + inv_kp_ncols
+        else:
+            cur_col += inv_drv_ncols + blk_sp + inv_kp_ncols
+        inv_fb0 = self.add_tile(inv_kp_master, driver_tile_idx[0], cur_col, flip_lr=True)
+        inv_fb1 = self.add_tile(inv_kp_master, driver_tile_idx[1], cur_col, flip_lr=True)
 
-        cur_col += (blk_sp * sep_vert_out)
-        self.set_mos_size(cur_col)
+        if dummy_dev:
+            pdummy, ndummy0, ndummy1 = [], [], []
+            pdummy.append(self.add_mos(ridx_p, 0, 2, tile_idx=driver_tile_idx[0]))
+            ndummy0.append(self.add_mos(ridx_n, 0, 2, tile_idx=driver_tile_idx[0]))
+            pdummy.append(self.add_mos(ridx_p, 0, 2, tile_idx=driver_tile_idx[1]))
+            ndummy1.append(self.add_mos(ridx_n, 0, 2, tile_idx=driver_tile_idx[1]))
+
+            # self.add_mos(ridx_p, inv_drv_ncols + 3, 2, tile_idx=0)
+            # self.add_mos(ridx_n, inv_drv_ncols + 3, 2, tile_idx=0)
+            # self.add_mos(ridx_p, inv_drv_ncols + 3, 2, tile_idx=1)
+            # self.add_mos(ridx_n, inv_drv_ncols + 3, 2, tile_idx=1)
+
+            pdummy.append(self.add_mos(ridx_p, cur_col, 2, tile_idx=driver_tile_idx[0]))
+            ndummy0.append(self.add_mos(ridx_n, cur_col, 2, tile_idx=driver_tile_idx[0]))
+            pdummy.append(self.add_mos(ridx_p, cur_col, 2, tile_idx=driver_tile_idx[1]))
+            ndummy1.append(self.add_mos(ridx_n, cur_col, 2, tile_idx=driver_tile_idx[1]))
+
+        cur_col += (blk_sp * sep_vert_out) + 2 * dummy_dev
+        # add ptaps
+        vss0_ports = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx[0], seg=cur_col)
+        vss1_ports = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx[1], seg=cur_col)
+
+        # add ntap
+        vdd_ports = self.add_substrate_contact(0, 0, tile_idx=ntap_tile_idx[0], seg=cur_col)
+
+        self.set_mos_size()
 
         # --- Routing --- #
         # supplies
         vss_list, vdd_list = [], []
-        for inst in (inv_in, inv_inb, inv_fb0, inv_fb1):
-            vss_list.append(inst.get_pin('VSS'))
-            vdd_list.append(inst.get_pin('VDD'))
-        self.add_pin('VDD', self.connect_wires(vdd_list)[0])
-        self.add_pin('VSS', self.connect_wires(vss_list)[0])
+
+        vdd_tid = self.get_track_id(0, MOSWireType.DS, 'sup', 0, tile_idx=ntap_tile_idx[0])
+        vss0_tid = self.get_track_id(0, MOSWireType.DS, 'sup', 0, tile_idx=ptap_tile_idx[0])
+        vss1_tid = self.get_track_id(0, MOSWireType.DS, 'sup', 0, tile_idx=ptap_tile_idx[1])
+
+        vdd = self.connect_to_tracks(vdd_ports, vdd_tid)
+        vss0 = self.connect_to_tracks(vss0_ports, vss0_tid)
+        vss1 = self.connect_to_tracks(vss1_ports, vss1_tid)
+
+        self.add_pin('VDD', vdd, connect=True)
+        self.add_pin('VSS', self.connect_wires([vss0, vss1]), connect=True)
+
+        for inst in (inv_in, inv_fb0):
+            self.connect_to_track_wires(inst.get_pin('VSS'), vss0)
+            self.connect_to_track_wires(inst.get_pin('VDD'), vdd)
+        for inst in (inv_inb, inv_fb1):
+            self.connect_to_track_wires(inst.get_pin('VSS'), vss1)
+            self.connect_to_track_wires(inst.get_pin('VDD'), vdd)
+        if dummy_dev:
+                for mos in pdummy:
+                    self.connect_to_track_wires(mos.s, vdd)
+                for mos in ndummy0:
+                    self.connect_to_track_wires(mos.s, vss0)
+                for mos in ndummy1:
+                    self.connect_to_track_wires(mos.s, vss1)
 
         hm_layer = self.conn_layer + 1
         vm_layer = hm_layer + 1
@@ -144,8 +209,6 @@ class InvDiffCore(MOSBase):
         _tidx1 = self.grid.coord_to_track(vm_layer,
                                           cur_col * self.sd_pitch,
                                           RoundMode.NEAREST)
-        if sep_vert_out:
-            raise NotImplementedError('Not implemented yet.')
 
         # get vm_layer tracks for mid and midb
         mid_coord = inv_in.get_pin('nin').upper
@@ -156,33 +219,51 @@ class InvDiffCore(MOSBase):
         _, vm_locs = self.tr_manager.place_wires(vm_layer,
                                                  ['sig', 'sig'],
                                                  mid_tidx)
+        ext_list = []
         mid = self.connect_to_tracks([inv_in.get_pin('pout'),
                                       inv_in.get_pin('nout'),
-                                     inv_fb0.get_pin('pout'),
-                                     inv_fb0.get_pin('nout'),
-                                     inv_fb1.get_pin('nin')],
-                                     TrackID(vm_layer, vm_locs[1], w_sig_vm))
+                                      inv_fb0.get_pin('pout'),
+                                      inv_fb0.get_pin('nout'),
+                                      inv_fb1.get_pin('pin')],
+                                      TrackID(vm_layer, vm_locs[1], w_sig_vm), ret_wire_list=ext_list)
         midb = self.connect_to_tracks([inv_inb.get_pin('pout'),
                                        inv_inb.get_pin('nout'),
-                                      inv_fb1.get_pin('pout'),
-                                      inv_fb1.get_pin('nout'),
-                                      inv_fb0.get_pin('nin')],
-                                      TrackID(vm_layer, vm_locs[-2], w_sig_vm))
+                                       inv_fb1.get_pin('pout'),
+                                       inv_fb1.get_pin('nout'),
+                                       inv_fb0.get_pin('pin')],
+                                       TrackID(vm_layer, vm_locs[-2], w_sig_vm))
+        # make the horizontal wires the same length to match capacitance
+        self.extend_wires(inv_fb1.get_pin('nout'), upper=ext_list[0].upper)
 
         # draw output pins
-        out_hm = self.connect_to_tracks(mid,
-                                        inv_in.get_pin('nin').track_id,
+        if not sep_vert_out:
+            out = self.connect_to_tracks(mid,
+                                        self.get_track_id(ridx_p, MOSWireType.G, 'sig', tile_idx=driver_tile_idx[0]),
                                         min_len_mode=MinLenMode.MIDDLE)
-        outb_hm = self.connect_to_tracks(midb,
-                                         inv_inb.get_pin('nin').track_id,
+            outb = self.connect_to_tracks(midb,
+                                         self.get_track_id(ridx_p, MOSWireType.G, 'sig', tile_idx=driver_tile_idx[1]),
                                          min_len_mode=MinLenMode.MIDDLE)
-        self.add_pin('out', out_hm, label='out')
-        self.add_pin('outb', outb_hm, label='outb')
+        else:
+            out = mid
+            outb = midb
+
+        self.add_pin('out', out, label='out')
+        self.add_pin('outb', outb, label='outb')
+
+        # breakpoint()
 
         # get schematic parameters
         self.sch_params = dict(
             inv_in=inv_drv_master.sch_params,
             inv_fb=inv_kp_master.sch_params,
+            dummy_dev=dummy_dev,
+            dummy_params=dict(
+                wn=self.get_tile_pinfo(driver_tile_idx[0]).get_row_place_info(ridx_n).row_info.width,
+                wp=self.get_tile_pinfo(driver_tile_idx[0]).get_row_place_info(ridx_p).row_info.width,
+                lch=self.get_tile_pinfo(driver_tile_idx[0]).get_row_place_info(ridx_p).row_info.lch,
+                seg=2,
+                intent=self.get_tile_pinfo(driver_tile_idx[0]).get_row_place_info(ridx_p).row_info.threshold,
+            )
         )
 
 class CurrentStarvedInvDiffCore(MOSBase):

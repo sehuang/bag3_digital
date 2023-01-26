@@ -66,9 +66,12 @@ class bag3_digital__inv_diff(Module):
         return dict(
             inv_in='Parameters for input tristate inverters',
             inv_fb='Parameters for keeper tristate inverters',
+            dummy_dev='True if adding dummy bordering devices',
+            dummy_params='Parameters for dummy devices',
         )
 
-    def design(self, inv_in: Mapping[str, Any], inv_fb: Mapping[str, Any]) -> None:
+    def design(self, inv_in: Mapping[str, Any], inv_fb: Mapping[str, Any],
+               dummy_dev: bool, dummy_params: Mapping[str, Any]) -> None:
         """To be overridden by subclasses to design this module.
 
         This method should fill in values for all parameters in
@@ -95,3 +98,29 @@ class bag3_digital__inv_diff(Module):
         # current summers
         self.instances['XCS0'].design(nin=2)
         self.instances['XCS1'].design(nin=2)
+
+        # dummies
+        if dummy_dev:
+            pdummy_params = dummy_params.to_dict()
+            ndummy_params = dummy_params.to_dict()
+            pdummy_params.pop('wn')
+            pdummy_params['w'] = pdummy_params.pop('wp')
+            ndummy_params.pop('wp')
+            ndummy_params['w'] = ndummy_params.pop('wn')
+            self.design_transistor('XNDUMM0', **ndummy_params)
+            self.design_transistor('XNDUMM1', **ndummy_params)
+            self.design_transistor('XNDUMM2', **ndummy_params)
+            self.design_transistor('XNDUMM3', **ndummy_params)
+            self.design_transistor('XPDUMM0', **pdummy_params)
+            self.design_transistor('XPDUMM1', **pdummy_params)
+            self.design_transistor('XPDUMM2', **pdummy_params)
+            self.design_transistor('XPDUMM3', **pdummy_params)
+        else:
+            self.remove_instance('XNDUMM0')
+            self.remove_instance('XNDUMM1')
+            self.remove_instance('XNDUMM1')
+            self.remove_instance('XNDUMM1')
+            self.remove_instance('XPDUMM0')
+            self.remove_instance('XPDUMM1')
+            self.remove_instance('XPDUMM1')
+            self.remove_instance('XPDUMM1')

@@ -3,9 +3,9 @@ cell_name: inv_diff
 view_name: schematic
 bbox:
   - -567
-  - -240
-  - 500
-  - 306
+  - -320
+  - 852
+  - 317
 terminals:
   VDD:
     obj:
@@ -44,7 +44,7 @@ terminals:
           drafting: true
           attr_type: 0
           format: 1
-    stype: 1
+    stype: 0
     ttype: 2
   VSS:
     obj:
@@ -83,7 +83,7 @@ terminals:
           drafting: true
           attr_type: 0
           format: 1
-    stype: 2
+    stype: 0
     ttype: 2
   in:
     obj:
@@ -330,6 +330,62 @@ shapes:
     - 5
     - layer: 228
       purpose: 4294967295
+      net: VSS
+      points:
+        -
+          - 760
+          - 140
+        -
+          - 780
+          - 140
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VSS
+      origin:
+        - 764
+        - 147
+      alignment: 2
+      orient: R0
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VSS
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VDD
+      points:
+        -
+          - 760
+          - 260
+        -
+          - 760
+          - 300
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VDD
+      origin:
+        - 753
+        - 264
+      alignment: 2
+      orient: R90
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VDD
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
       net: out
       points:
         -
@@ -410,6 +466,62 @@ shapes:
       visible: true
       drafting: true
       text: midb<1>
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VDD
+      points:
+        -
+          - 590
+          - 230
+        -
+          - 630
+          - 230
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VDD
+      origin:
+        - 594
+        - 237
+      alignment: 2
+      orient: R0
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VDD
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VDD
+      points:
+        -
+          - 760
+          - -130
+        -
+          - 760
+          - -90
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VDD
+      origin:
+        - 753
+        - -126
+      alignment: 2
+      orient: R90
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VDD
   -
     - 5
     - layer: 228
@@ -526,6 +638,62 @@ shapes:
     - 5
     - layer: 228
       purpose: 4294967295
+      net: VSS
+      points:
+        -
+          - 760
+          - 70
+        -
+          - 760
+          - 110
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VSS
+      origin:
+        - 753
+        - 106
+      alignment: 8
+      orient: R90
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VSS
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VSS
+      points:
+        -
+          - 760
+          - -320
+        -
+          - 760
+          - -280
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VSS
+      origin:
+        - 753
+        - -284
+      alignment: 8
+      orient: R90
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VSS
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
       net: inb
       points:
         -
@@ -638,6 +806,62 @@ shapes:
     - 5
     - layer: 228
       purpose: 4294967295
+      net: VDD
+      points:
+        -
+          - 610
+          - -150
+        -
+          - 650
+          - -150
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VDD
+      origin:
+        - 614
+        - -143
+      alignment: 2
+      orient: R0
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VDD
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VDD
+      points:
+        -
+          - 760
+          - 230
+        -
+          - 800
+          - 230
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VDD
+      origin:
+        - 764
+        - 237
+      alignment: 2
+      orient: R0
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VDD
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
       net: in
       points:
         -
@@ -662,6 +886,202 @@ shapes:
       visible: true
       drafting: true
       text: in
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VSS
+      points:
+        -
+          - 590
+          - 70
+        -
+          - 590
+          - 110
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VSS
+      origin:
+        - 583
+        - 106
+      alignment: 8
+      orient: R90
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VSS
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VSS
+      points:
+        -
+          - 760
+          - -250
+        -
+          - 800
+          - -250
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VSS
+      origin:
+        - 764
+        - -243
+      alignment: 2
+      orient: R0
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VSS
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VSS
+      points:
+        -
+          - 610
+          - -320
+        -
+          - 610
+          - -280
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VSS
+      origin:
+        - 603
+        - -284
+      alignment: 8
+      orient: R90
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VSS
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VDD
+      points:
+        -
+          - 760
+          - -160
+        -
+          - 800
+          - -160
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VDD
+      origin:
+        - 764
+        - -153
+      alignment: 2
+      orient: R0
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VDD
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VSS
+      points:
+        -
+          - 590
+          - 140
+        -
+          - 630
+          - 140
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VSS
+      origin:
+        - 594
+        - 147
+      alignment: 2
+      orient: R0
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VSS
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VSS
+      points:
+        -
+          - 610
+          - -250
+        -
+          - 650
+          - -250
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VSS
+      origin:
+        - 614
+        - -243
+      alignment: 2
+      orient: R0
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VSS
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VDD
+      points:
+        -
+          - 610
+          - -120
+        -
+          - 610
+          - -80
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VDD
+      origin:
+        - 603
+        - -116
+      alignment: 2
+      orient: R90
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VDD
   -
     - 5
     - layer: 228
@@ -810,6 +1230,34 @@ shapes:
       visible: true
       drafting: true
       text: mid<1:0>
+  -
+    - 7
+    - layer: 228
+      purpose: 237
+      net: VDD
+      origin:
+        - 583
+        - 264
+      alignment: 2
+      orient: R90
+      font: 5
+      height: 10
+      overbar: false
+      visible: true
+      drafting: true
+      text: VDD
+  -
+    - 5
+    - layer: 228
+      purpose: 4294967295
+      net: VDD
+      points:
+        -
+          - 590
+          - 260
+        -
+          - 590
+          - 300
 instances:
   XCS0:
     lib_name: xbase
@@ -933,16 +1381,248 @@ instances:
     params:
       {}
     is_primitive: false
+  XNDUMM0:
+    lib_name: BAG_prim
+    cell_name: nmos4_standard
+    view_name: symbol
+    xform:
+      - 570
+      - -250
+      - R0
+    bbox:
+      - 502
+      - -284
+      - 702
+      - -205
+    connections:
+      B: VSS
+      D: net2
+      G: net5
+      S: VSS
+    params:
+      l:
+        - 3
+        - 40n
+      nf:
+        - 3
+        - 2
+      w:
+        - 3
+        - 4
+    is_primitive: true
+  XNDUMM1:
+    lib_name: BAG_prim
+    cell_name: nmos4_standard
+    view_name: symbol
+    xform:
+      - 720
+      - -250
+      - R0
+    bbox:
+      - 652
+      - -284
+      - 852
+      - -205
+    connections:
+      B: VSS
+      D: net1
+      G: net6
+      S: VSS
+    params:
+      l:
+        - 3
+        - 40n
+      nf:
+        - 3
+        - 2
+      w:
+        - 3
+        - 4
+    is_primitive: true
+  XNDUMM2:
+    lib_name: BAG_prim
+    cell_name: nmos4_standard
+    view_name: symbol
+    xform:
+      - 550
+      - 140
+      - R0
+    bbox:
+      - 482
+      - 106
+      - 682
+      - 185
+    connections:
+      B: VSS
+      D: net12
+      G: net11
+      S: VSS
+    params:
+      l:
+        - 3
+        - 40n
+      nf:
+        - 3
+        - 2
+      w:
+        - 3
+        - 4
+    is_primitive: true
+  XNDUMM3:
+    lib_name: BAG_prim
+    cell_name: nmos4_standard
+    view_name: symbol
+    xform:
+      - 720
+      - 140
+      - R0
+    bbox:
+      - 652
+      - 106
+      - 852
+      - 185
+    connections:
+      B: VSS
+      D: net10
+      G: net9
+      S: VSS
+    params:
+      l:
+        - 3
+        - 40n
+      nf:
+        - 3
+        - 2
+      w:
+        - 3
+        - 4
+    is_primitive: true
+  XPDUMM0:
+    lib_name: BAG_prim
+    cell_name: pmos4_standard
+    view_name: symbol
+    xform:
+      - 550
+      - 230
+      - R0
+    bbox:
+      - 482
+      - 143
+      - 681
+      - 317
+    connections:
+      B: VDD
+      D: net3
+      G: net7
+      S: VDD
+    params:
+      l:
+        - 3
+        - 40n
+      nf:
+        - 3
+        - 2
+      w:
+        - 3
+        - 4
+    is_primitive: true
+  XPDUMM1:
+    lib_name: BAG_prim
+    cell_name: pmos4_standard
+    view_name: symbol
+    xform:
+      - 720
+      - 230
+      - R0
+    bbox:
+      - 652
+      - 143
+      - 851
+      - 317
+    connections:
+      B: VDD
+      D: net4
+      G: net8
+      S: VDD
+    params:
+      l:
+        - 3
+        - 40n
+      nf:
+        - 3
+        - 2
+      w:
+        - 3
+        - 4
+    is_primitive: true
+  XPDUMM2:
+    lib_name: BAG_prim
+    cell_name: pmos4_standard
+    view_name: symbol
+    xform:
+      - 570
+      - -150
+      - R0
+    bbox:
+      - 502
+      - -237
+      - 701
+      - -63
+    connections:
+      B: VDD
+      D: net14
+      G: net13
+      S: VDD
+    params:
+      l:
+        - 3
+        - 40n
+      nf:
+        - 3
+        - 2
+      w:
+        - 3
+        - 4
+    is_primitive: true
+  XPDUMM3:
+    lib_name: BAG_prim
+    cell_name: pmos4_standard
+    view_name: symbol
+    xform:
+      - 720
+      - -160
+      - R0
+    bbox:
+      - 652
+      - -247
+      - 851
+      - -73
+    connections:
+      B: VDD
+      D: net16
+      G: net15
+      S: VDD
+    params:
+      l:
+        - 3
+        - 40n
+      nf:
+        - 3
+        - 2
+      w:
+        - 3
+        - 4
+    is_primitive: true
 props:
   connectivityLastUpdated:
     - 0
-    - 2467
+    - 3680
   instance#:
     - 0
-    - 3
+    - 11
   lastSchematicExtraction:
     - 4
-    - time_val: 1665783596
+    - time_val: 1674759631
   net#:
     - 0
     - 0
@@ -951,7 +1631,7 @@ props:
     - 8
   schGeometryLastUpdated:
     - 0
-    - 2467
+    - 3680
   schGeometryVersion:
     - 3
     - sch.ds.gm.1.4
@@ -961,10 +1641,10 @@ props:
 app_defs:
   _dbLastSavedCounter:
     - 0
-    - 2467
+    - 3680
   _dbvCvTimeStamp:
     - 0
-    - 2467
+    - 3680
   cdbRevision:
     - 0
     - 227612
