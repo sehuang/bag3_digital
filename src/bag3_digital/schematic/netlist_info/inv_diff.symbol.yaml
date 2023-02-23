@@ -411,6 +411,16 @@ shapes:
           - 260
           - 60
   -
+    - 0
+    - layer: 231
+      purpose: 4294967295
+      net: ""
+      bbox:
+        - 0
+        - 0
+        - 260
+        - 220
+  -
     - 5
     - layer: 231
       purpose: 4294967295
@@ -504,10 +514,10 @@ props:
 app_defs:
   _dbLastSavedCounter:
     - 0
-    - 474
+    - 477
   _dbvCvTimeStamp:
     - 0
-    - 474
+    - 477
   cdbRevision:
     - 0
     - 227612

@@ -139,7 +139,7 @@ class InvDiffCore(MOSBase):
             pdummy.append(self.add_mos(ridx_p, cur_col, 2, tile_idx=driver_tile_idx[1]))
             ndummy1.append(self.add_mos(ridx_n, cur_col, 2, tile_idx=driver_tile_idx[1]))
 
-        cur_col += (blk_sp * sep_vert_out) + 2 * dummy_dev
+        cur_col += (blk_sp * sep_vert_out)
         # add ptaps
         vss0_ports = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx[0], seg=cur_col)
         vss1_ports = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx[1], seg=cur_col)
@@ -151,8 +151,6 @@ class InvDiffCore(MOSBase):
 
         # --- Routing --- #
         # supplies
-        vss_list, vdd_list = [], []
-
         vdd_tid = self.get_track_id(0, MOSWireType.DS, 'sup', 0, tile_idx=ntap_tile_idx[0])
         vss0_tid = self.get_track_id(0, MOSWireType.DS, 'sup', 0, tile_idx=ptap_tile_idx[0])
         vss1_tid = self.get_track_id(0, MOSWireType.DS, 'sup', 0, tile_idx=ptap_tile_idx[1])
@@ -340,30 +338,17 @@ class CurrentStarvedInvDiffCore(MOSBase):
 
         draw_mir: bool = self.params['draw_mir']
 
-        ptap_tile_idx: list[int] = self.params['ptap_tile_idx']
+        ptap_tile_idx: List[int] = self.params['ptap_tile_idx']
         ntap_tile_idx: int = self.params['ntap_tile_idx']
-        inv_tile_idx: list[int] = self.params['inv_tile_idx']
+        inv_tile_idx: List[int] = self.params['inv_tile_idx']
 
         # --- make masters --- #
-        # get tracks
-        pg0_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', 0, tile_idx=inv_tile_idx[0])
-        ng0_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 1, tile_idx=inv_tile_idx[0])
-
-
-        # kp_s_top = self.get_track_index(-1, MOSWireType.DS, 'sig',
-        #                                 wire_idx=0, tile_idx=inv_tile_idx[0])
-        # kp_s_bot = self.get_track_index(1, MOSWireType.DS, 'sig',
-        #                                 wire_idx=0, tile_idx=inv_tile_idx[0])
-
         # Input inverters
         inv_drv_params = dict(pinfo=self.get_tile_pinfo(inv_tile_idx[0]),
                               seg_inv=seg_drv, seg_mir=seg_mir, draw_mir=draw_mir,
                               ridx_p=ridx_p, ridx_n_inv=ridx_n, ridx_n_mir=ridx_mir,)
         inv_drv_master = self.new_template(CurrentStarvedInvCore, params=inv_drv_params)
         inv_drv_ncols = inv_drv_master.num_cols
-        inv_drv_nrows = inv_drv_master.num_rows
-        inv_drv_ntiles = inv_drv_master.num_tile_rows
-
 
         in_warr = inv_drv_master.get_port('in').get_pins()[0]
         ref_tidx = in_warr.track_id.base_index
@@ -379,11 +364,6 @@ class CurrentStarvedInvDiffCore(MOSBase):
                              vertical_sup=True)
         inv_kp_master = self.new_template(InvCore, params=inv_kp_params)
         inv_kp_ncols = inv_kp_master.num_cols
-
-        # # pg0 = self.add_wires(2, pg0_tidx, 0, 10000)
-        # ng1 = self.add_wires(2, ng0_tidx, 0, 10000)
-        # # self.add_pin('pg', pg0)
-        # self.add_pin('ng1', ng1)
 
         # --- Placement --- #
         blk_sp = self.min_sep_col
@@ -422,10 +402,6 @@ class CurrentStarvedInvDiffCore(MOSBase):
             vdd_tie_list = [inv_in.get_pin('VDD'), inv_inb.get_pin('VDD'),
                             inv_fb0.get_pin('VDD'), inv_fb1.get_pin('VDD'),
                             vdd_ports]
-            # self.reexport(inv_in.get_port('VSS_int'), net_name='VSS_int_bot', show=True, connect=True)
-            # self.reexport(inv_fb0.get_port('VSS'), net_name='VSS_int_bot', show=True, connect=True)
-            # self.reexport(inv_inb.get_port('VSS_int'), net_name='VSS_int_top', show=True, connect=True)
-            # self.reexport(inv_fb1.get_port('VSS'), net_name='VSS_int_top', show=True, connect=True)
             self.add_pin('VSS_int_bot', self.connect_wires([inv_in.get_pin('VSS_int'), inv_fb0.get_pin('VSS')]), show=True, connect=True)
             self.add_pin('VSS_int_top', self.connect_wires([inv_inb.get_pin('VSS_int'), inv_fb1.get_pin('VSS')]), show=True, connect=True)
             self.add_pin('VSS_bot_taps', vss_bot_ports, hide=True)
