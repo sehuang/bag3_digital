@@ -54,7 +54,7 @@ class InvDiffCore(MOSBase):
             ridx_n=0,
             chain=False,
             dummy_dev=False,
-            sig_locs=dict(),
+            sig_locs=None,
             sep_vert_in=False,
             sep_vert_out=False,
             vertical_in=False,
@@ -85,9 +85,9 @@ class InvDiffCore(MOSBase):
         ptap_tile_idx: List[int] = self.params['ptap_tile_idx']
         ntap_tile_idx: List[int] = self.params['ntap_tile_idx']
 
+        if sig_locs is None: sig_locs = {}
+
         # --- make masters --- #
-
-
 
         # get tracks
         pg0_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', 0, tile_idx=driver_tile_idx[0])

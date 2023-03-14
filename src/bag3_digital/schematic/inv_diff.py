@@ -88,18 +88,14 @@ class bag3_digital__inv_diff(Module):
         array_instance()
         """
         # input inverters
-        self.reconnect_instance_terminal('XIN', 'pout', 'midb<0>')
-        self.reconnect_instance_terminal('XIN', 'nout', 'midb<0>')
-        self.reconnect_instance_terminal('XINB', 'pout', 'mid<0>')
-        self.reconnect_instance_terminal('XINB', 'nout', 'mid<0>')
+        self.reconnect_instance('XIN', [('pout', 'midb<0>'), ('nout', 'midb<0>')])
+        self.reconnect_instance('XINB', [('pout', 'mid<0>'), ('nout', 'mid<0>')])
         self.instances['XIN'].design(**inv_in)
         self.instances['XINB'].design(**inv_in)
 
         # feedback inverters
-        self.reconnect_instance_terminal('XFB0', 'pout', 'midb<1>')
-        self.reconnect_instance_terminal('XFB0', 'nout', 'midb<1>')
-        self.reconnect_instance_terminal('XFB1', 'pout', 'mid<1>')
-        self.reconnect_instance_terminal('XFB1', 'nout', 'mid<1>')
+        self.reconnect_instance('XFB0', [('pout', 'midb<1>'), ('nout', 'midb<1>')])
+        self.reconnect_instance('XFB1', [('pout', 'mid<1>'), ('nout', 'mid<1>')])
         self.instances['XFB0'].design(**inv_fb)
         self.instances['XFB1'].design(**inv_fb)
 
