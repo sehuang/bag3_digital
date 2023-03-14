@@ -252,6 +252,7 @@ class InvCore(MOSBase):
             th_p=thp,
             stack_p=stack_p,
             stack_n=stack_n,
+            vertical_out=vertical_out,
         )
 
 
@@ -431,7 +432,6 @@ class InvChainCore(MOSBase):
                         suf = '' if self._out_invert else 'b'
                         self.add_pin('out' + suf, warr)
                 elif not vertical_mid:
-                    # I got lazy and made this a one-liner
                     self.add_pin(f"in_mid{(nstage > 1)*('<' + str(idx) + '>')}", inst.get_pin("in"))
                 else:
                     self.connect_to_track_wires(inst.get_pin('in'), out_prev)
@@ -442,9 +442,8 @@ class InvChainCore(MOSBase):
                 self.add_pin('pout' + suf, pout_cur, hide=True)
                 self.add_pin('nout' + suf, nout_cur, hide=True)
             elif not vertical_mid:
-                #FIXME: hide should be true, this is for debug
-                self.add_pin(f"pout{(nstage > 1)*('<' + str(idx) + '>')}", pout_cur, hide=False)
-                self.add_pin(f"nout{(nstage > 1)*('<' + str(idx) + '>')}", nout_cur, hide=False)
+                self.add_pin(f"pout{(nstage > 1)*('<' + str(idx) + '>')}", pout_cur)
+                self.add_pin(f"nout{(nstage > 1)*('<' + str(idx) + '>')}", nout_cur)
             elif dual_output and (idx == nstage - 2):
                 suf = '' if self._out_invert else 'b'
                 if not is_guarded:

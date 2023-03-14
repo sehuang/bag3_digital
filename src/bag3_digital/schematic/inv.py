@@ -52,6 +52,7 @@ class bag3_digital__inv(Module):
             stack_n='number of transistors in a stack.',
             p_in_gate_numbers='a List indicating input number of the gate',
             n_in_gate_numbers='a List indicating input number of the gate',
+            vertical_out='True to draw vertical output',
         )
 
     @classmethod
@@ -68,7 +69,7 @@ class bag3_digital__inv(Module):
 
     def design(self, seg: int, seg_p: int, seg_n: int, lch: int, w_p: int, w_n: int, th_p: str,
                th_n: str, stack_p: int, stack_n: int, p_in_gate_numbers: Optional[List[int]] = None,
-               n_in_gate_numbers: Optional[List[int]] = None) -> None:
+               n_in_gate_numbers: Optional[List[int]] = None, vertical_out: bool = True) -> None:
         if seg_p <= 0:
             seg_p = seg
         if seg_n <= 0:
@@ -81,6 +82,13 @@ class bag3_digital__inv(Module):
 
         self._reconnect_gate('XP', stack_p, p_in_gate_numbers, 'VSS')
         self._reconnect_gate('XN', stack_n, n_in_gate_numbers, 'VDD')
+
+        if not vertical_out:
+            self.add_pin('pout', 'output')
+            self.add_pin('nout', 'output')
+            self.remove_pin('out')
+            self.reconnect_instance_terminal('XP', 'd',  'pout')
+            self.reconnect_instance_terminal('XN', 'd',  'nout')
 
     def _reconnect_gate(self, inst_name: str, stack: int, idx_list: Optional[List[int]], sup: str
                         ) -> None:
