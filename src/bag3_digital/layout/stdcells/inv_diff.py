@@ -35,6 +35,7 @@ class InvDiffCore(MOSBase):
             ridx_p='pmos row index.',
             ridx_n='nmos row index.',
             dummy_dev='True to add dummy devices around active devices.',
+            chain='True to set up inputs to allow for chaining.',
             sig_locs='Signal track location dictionary.',
             vertical_in='True to have inputs on vertical layer; True by default',
             sep_vert_in='True to use separate vertical tracks for in and inb; False by default',
@@ -51,8 +52,9 @@ class InvDiffCore(MOSBase):
             w_n=0,
             ridx_p=-1,
             ridx_n=0,
+            chain=False,
             dummy_dev=False,
-            sig_locs=None,
+            sig_locs=dict(),
             sep_vert_in=False,
             sep_vert_out=False,
             vertical_in=False,
@@ -69,7 +71,7 @@ class InvDiffCore(MOSBase):
         w_n: int = self.params['w_n']
         ridx_p: int = self.params['ridx_p']
         ridx_n: int = self.params['ridx_n']
-        # sig_locs: Optional[Mapping[str, float]] = self.params['sig_locs']
+        sig_locs: Optional[Mapping[str, float]] = self.params['sig_locs']
         dummy_dev: bool = self.params['dummy_dev']
         vertical_in: bool = self.params['vertical_in']
         sep_vert_in: bool = self.params['sep_vert_in']
@@ -77,6 +79,7 @@ class InvDiffCore(MOSBase):
         sep_vert_out: bool = self.params['sep_vert_out']
         seg_kp: int = self.params['seg_kp']
         seg_drv: int = self.params['seg_drv']
+        chain: bool = self.params['chain']
 
         driver_tile_idx: List[int] = self.params['driver_tile_idx']
         ptap_tile_idx: List[int] = self.params['ptap_tile_idx']
@@ -88,19 +91,23 @@ class InvDiffCore(MOSBase):
 
         # get tracks
         pg0_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', 0, tile_idx=driver_tile_idx[0])
-        ng0_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 1, tile_idx=driver_tile_idx[0])
+        ng0_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 0, tile_idx=driver_tile_idx[0])
+        ng1_tidx = self.get_track_index(ridx_n, MOSWireType.G, 'sig', 1, tile_idx=driver_tile_idx[1])
+
+        drv_in_loc = ng0_tidx if chain else sig_locs.get('in', None)
+        kp_in_loc = sig_locs.get('kp_in', None)
 
         # Input inverters
         inv_drv_params = dict(pinfo=self.get_tile_pinfo(driver_tile_idx[0]), seg=seg_drv, w_p=w_p, w_n=w_n,
                               ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
-                              vertical_sup=True)
+                              vertical_sup=True, sig_locs={'nin': drv_in_loc})
         inv_drv_master = self.new_template(InvCore, params=inv_drv_params)
         inv_drv_ncols = inv_drv_master.num_cols
 
         # Keeper inverters
         inv_kp_params = dict(pinfo=self.get_tile_pinfo(driver_tile_idx[0]), seg=seg_kp, w_p=w_p, w_n=w_n,
                              ridx_p=ridx_p, ridx_n=ridx_n, vertical_out=False,
-                             vertical_sup=True)
+                             vertical_sup=True, sig_locs={'nin': kp_in_loc})
         inv_kp_master = self.new_template(InvCore, params=inv_kp_params)
         inv_kp_ncols = inv_kp_master.num_cols
 
@@ -231,15 +238,17 @@ class InvDiffCore(MOSBase):
                                        inv_fb0.get_pin('pin')],
                                        TrackID(vm_layer, vm_locs[-2], w_sig_vm))
         # make the horizontal wires the same length to match capacitance
+        self.add_pin('mid', mid, hide=True)
+        self.add_pin('midb', midb, hide=True)
         self.extend_wires(inv_fb1.get_pin('nout'), upper=ext_list[0].upper)
 
         # draw output pins
-        if not sep_vert_out:
+        if not sep_vert_out or chain:
             out = self.connect_to_tracks(mid,
-                                        self.get_track_id(ridx_p, MOSWireType.G, 'sig', tile_idx=driver_tile_idx[0]),
+                                        inv_in.get_pin('in').track_id,
                                         min_len_mode=MinLenMode.MIDDLE)
             outb = self.connect_to_tracks(midb,
-                                         self.get_track_id(ridx_p, MOSWireType.G, 'sig', tile_idx=driver_tile_idx[1]),
+                                         inv_inb.get_pin('in').track_id,
                                          min_len_mode=MinLenMode.MIDDLE)
         else:
             out = mid
