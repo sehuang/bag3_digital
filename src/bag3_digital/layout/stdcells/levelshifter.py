@@ -69,6 +69,7 @@ class LevelShifterCore(MOSBase):
             stack_p='PMOS number of stacks.',
             sig_locs='Optional dictionary of user defined signal locations',
             rst_b_wire_idx='Optional parameter to move the horizontal wire for reset connections',
+            vertical_sup='true to use vertical supply rails with substrate tap rows.'
         )
 
     @classmethod
@@ -85,6 +86,7 @@ class LevelShifterCore(MOSBase):
             stack_p=1,
             sig_locs={},
             rst_b_wire_idx=2,
+            vertical_sup=False,
         )
 
     def draw_layout(self):
@@ -106,7 +108,7 @@ class LevelShifterCore(MOSBase):
         stack_p: int = params['stack_p']
         sig_locs: Mapping[str, Union[float, HalfInt]] = params['sig_locs']
         rst_b_wire_idx: int = params['rst_b_wire_idx']
-        # breakpoint()
+        vertical_sup: bool = params['vertical_sup']
 
         if stack_p != 1 and stack_p != 2:
             raise ValueError('Only support stack_p = 1 or stack_p = 2')
@@ -131,8 +133,9 @@ class LevelShifterCore(MOSBase):
         w_pu = w_dict.get('pu', default_wp)
         sch_w_dict = dict(pd=w_pd, pu=w_pu)
 
-        vss_tid = self.get_track_id(ridx_n, MOSWireType.DS, wire_name='sup')
-        vdd_tid = self.get_track_id(ridx_p, MOSWireType.DS, wire_name='sup')
+        if not vertical_sup:
+            vss_tid = self.get_track_id(ridx_n, MOSWireType.DS, wire_name='sup')
+            vdd_tid = self.get_track_id(ridx_p, MOSWireType.DS, wire_name='sup')
         pg_midl_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', wire_idx=-2)
         pg_midr_tidx = self.get_track_index(ridx_p, MOSWireType.G, 'sig', wire_idx=-1)
         nd_mid_tidx = self.get_track_index(ridx_n, MOSWireType.DS, 'sig', wire_idx=-1)
@@ -220,10 +223,14 @@ class LevelShifterCore(MOSBase):
 
         # --- Routing --- #
         # vdd/vss
-        vdd = self.connect_to_tracks(vdd_list, vdd_tid)
-        vss = self.connect_to_tracks(vss_list, vss_tid)
-        self.add_pin('VDD', vdd)
-        self.add_pin('VSS', vss)
+        if not vertical_sup:
+            vdd = self.connect_to_tracks(vdd_list, vdd_tid)
+            vss = self.connect_to_tracks(vss_list, vss_tid)
+        else:
+            vdd = vdd_list
+            vss = vss_list
+        self.add_pin('VDD', vdd, connect=vertical_sup)
+        self.add_pin('VSS', vss, connect=vertical_sup)
 
         if has_rst or is_guarded:
             # use vm_layer to connect nmos and pmos drains
@@ -445,6 +452,8 @@ class LevelShifterCoreOutBuffer(MOSBase):
             num_col_tot='Total number of columns.',
             export_pins='Defaults to False.  True to export simulation pins.',
             rst_b_wire_idx='Wire index for the reset signal',
+            vertical_sup='true to use vertical supply rails for substrate tap rows.',
+            correct='true to generate correct layout at this level. Default to false.'
         )
 
     @classmethod
@@ -468,6 +477,8 @@ class LevelShifterCoreOutBuffer(MOSBase):
             num_col_tot=0,
             export_pins=False,
             rst_b_wire_idx=2,
+            vertical_sup=False,
+            correct=False,
         )
 
     def draw_layout(self):
@@ -494,6 +505,8 @@ class LevelShifterCoreOutBuffer(MOSBase):
         num_col_tot: int = params['num_col_tot']
         export_pins: bool = params['export_pins']
         rst_b_wire_idx: int = params['rst_b_wire_idx']
+        vertical_sup: bool = params['vertical_sup']
+        correct: bool = params['correct']
 
         hm_layer = self.conn_layer + 1
         vm_layer = hm_layer + 1
@@ -534,6 +547,7 @@ class LevelShifterCoreOutBuffer(MOSBase):
             inp_on_right=invert_in,
             sig_locs=sig_locs,
             rst_b_wire_idx=rst_b_wire_idx,
+            vertical_sup=vertical_sup,
         )
         core_master: LevelShifterCore = self.new_template(LevelShifterCore, params=core_params)
         self._mid_vertical = core_master.out_vertical
@@ -575,6 +589,7 @@ class LevelShifterCoreOutBuffer(MOSBase):
             w_p=w_invp,
             sig_locs=sig_locs_r,
             vertical_out=vertical_out,
+            vertical_sup=vertical_sup,
         )
         invr_master = self.new_template(InvChainCore, params=invr_params)
         sch_buf_params = invr_master.sch_params.copy(remove=['dual_output'])
@@ -619,8 +634,8 @@ class LevelShifterCoreOutBuffer(MOSBase):
             self._center_col = core_master.center_col
             cur_col = core_col + sep
 
-        vdd_list.append(core.get_pin('VDD'))
-        vss_list.append(core.get_pin('VSS'))
+        vdd_list.extend(core.get_all_port_pins('VDD'))
+        vss_list.extend(core.get_all_port_pins('VSS'))
         inv_r = self.add_tile(invr_master, 0, cur_col, commit=False)
         self._update_buf_inst(inv_r, vm_layer, sig_locs_r, sig_locs, 'r')
         vdd_list.append(inv_r.get_pin('VDD'))
@@ -629,12 +644,19 @@ class LevelShifterCoreOutBuffer(MOSBase):
         self.set_mos_size(num_cols=cur_col + inv_col_even)
 
         # export supplies
-        self.add_pin('VDD', self.connect_wires(vdd_list))
-        self.add_pin('VSS', self.connect_wires(vss_list))
+        self.add_pin('VDD', self.connect_wires(vdd_list), connect=vertical_sup)
+        self.add_pin('VSS', self.connect_wires(vss_list), connect=vertical_sup)
 
         # connect core output to buffer input
-        self.connect_wires([core.get_pin('poutr'), inv_r.get_pin('pin')])
-
+        if core.get_pin('poutr').track_id.base_index == inv_r.get_pin('pin').track_id.base_index:
+            self.connect_wires([core.get_pin('poutr'), inv_r.get_pin('pin')])
+        elif inv_r.has_port('in'):
+            next_track_tidx = self.tr_manager.get_next_track(vm_layer, inv_r.get_pin('in').track_id.base_index,
+                                                             'sig', 'sig', up=-2)
+            next_track_tid = TrackID(vm_layer, next_track_tidx, width=inv_r.get_pin('in').track_id.width)
+            self.connect_to_tracks([core.get_pin('poutr'), inv_r.get_pin('nin')], next_track_tid)
+        else:
+            raise NotImplementedError('Need to implement poutr track != pin track when there is no vertical in')
         # reexport core pins
         if core.has_port('rst_casc'):
             self.reexport(core.get_port('rst_casc'))
@@ -795,6 +817,148 @@ class LevelShifter(MOSBase):
         for name in ['out', 'outb', 'rst_out', 'rst_outb', 'rst_casc']:
             if lv.has_port(name):
                 self.reexport(lv.get_port(name))
+
+        buf_sch_params = buf_master.sch_params.copy(remove=['dual_output'])
+        lv_sch_params = lv_master.sch_params.copy(remove=['dual_output', 'invert_out'])
+        self.sch_params = dict(
+            lev_params=lv_sch_params,
+            buf_params=buf_sch_params,
+            dual_output=lv_master.dual_output,
+            invert_out=lv_master.outr_inverted,
+            export_pins=export_pins,
+        )
+
+class LevelShifterWithTapRows(LevelShifter):
+    '''Level shifter generator configured for substrate tap rows.'''
+
+    @classmethod
+    def get_schematic_class(cls) -> Optional[Type[Module]]:
+        # noinspection PyTypeChecker
+        return ModuleDB.get_schematic_class('bag3_digital', 'lvshift')
+
+    @classmethod
+    def get_params_info(cls) -> Dict[str, str]:
+        return dict(
+            pinfo='The MOSBasePlaceInfo object.',
+            lv_params='level shifter with output buffer parameters.',
+            in_buf_params='input buffer parameters.',
+            export_pins='Defaults to False.  True to export simulation pins.',
+            # ntap_tile_idxs='ntap tile indexes. Defaults to [0, 4]',
+            ptap_tile_idx='ptap tile index. Defaults to 2',
+            lv_tile_idx='level shifter core tile index. Defauls to 3',
+            in_buf_tile_idx='input buffer tile index. Defaults to 1',
+        )
+
+    @classmethod
+    def get_default_param_values(cls) -> Dict[str, Any]:
+        return dict(
+            export_pins=False,
+            # ntap_tile_idxs=[0, 4],
+            ptap_tile_idx=1,
+            lv_tile_idx=2,
+            in_buf_tile_idx=0,
+        )
+
+    def draw_layout(self):
+        params = self.params
+        pinfo = MOSBasePlaceInfo.make_place_info(self.grid, params['pinfo'])
+        self.draw_base(pinfo, flip_tile=True)
+
+        lv_params: Param = params['lv_params']
+        in_buf_params: Param = params['in_buf_params']
+        export_pins = params['export_pins']
+
+        # ntap_tile_idxs: List[int] = params['ntap_tile_idxs']
+        ptap_tile_idx: int = params['ptap_tile_idx']
+        lv_tile_idx: int = params['lv_tile_idx']
+        in_buf_tile_idx: int = params['in_buf_tile_idx']
+
+        # create masters
+        lvl_pinfo = pinfo[0].get_tile_info(lv_tile_idx)[0]
+        buf_pinfo = pinfo[0].get_tile_info(in_buf_tile_idx)[0]
+        lv_params = lv_params.copy(dict(pinfo=lvl_pinfo, export_pins=export_pins, vertical_sup=True))
+        lv_master: LevelShifterCoreOutBuffer = self.new_template(LevelShifterCoreOutBuffer,
+                                                                 params=lv_params)
+        self._ridx_p = lv_master.params['ridx_p']
+        self._ridx_n = lv_master.params['ridx_n']
+
+        in_buf_params = in_buf_params.copy(dict(pinfo=buf_pinfo, dual_output=True,
+                                                vertical_output=True,
+                                                is_guarded=lv_master.is_guarded,
+                                                vertical_sup=True),
+                                           remove=['sig_locs'])
+        buf_master: InvChainCore = self.new_template(InvChainCore, params=in_buf_params)
+        if buf_master.num_stages != 2:
+            raise ValueError('Must have exactly two stages in input buffer.')
+
+        # make sure buffer outb output is next to out, to avoid collision
+        hm_layer = self.conn_layer + 1
+        vm_layer = self.conn_layer + 2
+        out_tidx = buf_master.get_port('out').get_pins()[0].track_id.base_index
+        prev_tidx = self.tr_manager.get_next_track(vm_layer, out_tidx, 'sig', 'sig', up=False)
+        buf_master = cast(InvChainCore, buf_master.new_template_with(sig_locs=dict(outb=prev_tidx)))
+
+        # placement
+        lv = self.add_tile(lv_master, lv_tile_idx, 0)
+        buf_ncol = buf_master.num_cols
+        if lv_master.mid_vertical:
+            tid = lv.get_pin('midr').track_id
+            tidx = self.tr_manager.get_next_track(vm_layer, tid.base_index, 'sig', 'sig', up=True)
+            col_idx = self.arr_info.track_to_col(vm_layer, tidx, mode=RoundMode.GREATER_EQ)
+            buf_idx = col_idx + buf_ncol
+        else:
+            lv_center = lv_master.center_col
+            buf_idx = lv_center + buf_ncol
+
+
+        # make sure supply on even number
+        buf_idx += (buf_idx & 1)
+        buf = self.add_tile(buf_master, in_buf_tile_idx, buf_idx, flip_lr=True)
+        num_cols_tot = max(buf_idx, lv_master.num_cols)
+        # add substrate tiles
+        # vddh_conn = self.add_substrate_contact(0, 0, tile_idx=ntap_tile_idxs[1], seg=num_cols_tot)
+        # vddl_conn = self.add_substrate_contact(0, 0, tile_idx=ntap_tile_idxs[0], seg=num_cols_tot)
+        vss_conn = self.add_substrate_contact(0, 0, tile_idx=ptap_tile_idx, seg=num_cols_tot)
+        self.set_mos_size(num_cols=num_cols_tot)
+
+        # make rails
+        # vddl_tid = self.get_track_id(0, MOSWireType.DS, 'sup', wire_idx=0, tile_idx=ntap_tile_idxs[0])
+        # vddh_tid = self.get_track_id(0, MOSWireType.DS, 'sup', wire_idx=0, tile_idx=ntap_tile_idxs[1])
+        vss_tid = self.get_track_id(0, MOSWireType.DS, 'sup', wire_idx=0, tile_idx=ptap_tile_idx)
+        # vddh = self.connect_to_tracks(vddh_conn, vddh_tid)
+        # vddl = self.connect_to_tracks(vddl_conn, vddl_tid)
+        vss = self.connect_to_tracks(vss_conn, vss_tid)
+
+        # connect wires
+        self.connect_to_track_wires(lv.get_all_port_pins('VSS') + buf.get_all_port_pins('VSS'), vss)
+        # self.connect_to_track_wires(lv.get_all_port_pins('VDD'), vddh)
+        # self.connect_to_track_wires(buf.get_all_port_pins('VDD'), vddl)
+        self.connect_differential_wires(buf.get_pin('out'), buf.get_pin('outb'),
+                                        lv.get_pin('in'), lv.get_pin('inb'))
+        # breakpoint()
+
+        # reexport pins
+        # self.reexport(lv.get_port('midp'))
+        # self.reexport(lv.get_port('midn'), show=True)
+        self.reexport(lv.get_port('VDD'))
+        self.reexport(buf.get_port('VDD'), net_name='VDD_in')
+        in_pin = self.connect_via_stack(self.tr_manager, buf.get_pin('in'), vm_layer, 'sig',
+                               mlm_dict={hm_layer: MinLenMode.MIDDLE, vm_layer: MinLenMode.MIDDLE})
+        self.add_pin('in', in_pin)
+
+        if export_pins:
+            self.add_pin('inb_buf', buf.get_pin('outb'))
+            self.add_pin('in_buf', buf.get_pin('out'))
+            self.reexport(lv.get_port('midn'))
+            self.reexport(lv.get_port('midp'))
+
+        for name in ['out', 'outb', 'rst_out', 'rst_outb', 'rst_casc']:
+            if lv.has_port(name):
+                self.reexport(lv.get_port(name))
+
+        # self.add_pin('VDD', vddh)
+        # self.add_pin('VDD_in', vddl)
+        self.add_pin('VSS', vss)
 
         buf_sch_params = buf_master.sch_params.copy(remove=['dual_output'])
         lv_sch_params = lv_master.sch_params.copy(remove=['dual_output', 'invert_out'])
