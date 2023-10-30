@@ -71,6 +71,7 @@ class bag3_digital__inv(Module):
             n_in_gate_numbers=None,
             has_vtop=False,
             has_vbot=False,
+            separate_out=False,
         )
 
     def design(self, seg: int, seg_p: int, seg_n: int, lch: int, w_p: int, w_n: int, th_p: str,
