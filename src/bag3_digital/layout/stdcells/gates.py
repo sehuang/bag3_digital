@@ -568,7 +568,7 @@ class InvChainCore(MOSBase):
                 ridx_n=ridx_n,
                 is_guarded=is_guarded,
                 sig_locs=sig_locs_list[idx % 2],
-                vertical_out=vout,
+                separate_out=not vout,
                 vertical_sup=vertical_sup,
             )
             master_list.append(self.new_template(InvCore, params=params))
